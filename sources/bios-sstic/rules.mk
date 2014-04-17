@@ -21,7 +21,7 @@ $(TARGET)				:  TARGET_LDFLAGS	:= -T $(d)/linker.ld --start-group \
 	-Lbinary/libnet --defsym=bios_netboot=0x`$(OBJDUMP) binary/bios/bios.elf -t \
 	| grep netboot | cut -f 1 -d " "`
 $(TARGET)				:  $(OBJS_$(d)) binary/libbase/libbase-light.a \
-	binary/libhal/libhal.a binary/libnet/libnet.a  binary/bios/bios.elf bios-netboot
+	binary/libhal/libhal.a binary/libnet/libnet.a  binary/bios/bios.elf
 $(TARGET)				:  LD_OBJECTS := $(OBJS_$(d))
 
 d               := $(dirstack_$(sp))

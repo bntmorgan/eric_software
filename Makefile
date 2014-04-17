@@ -26,8 +26,6 @@ LD = $(CROSS_COMPILER)ld
 OBJCOPY = $(CROSS_COMPILER)objcopy
 OBJDUMP = $(CROSS_COMPILER)objdump
 RANLIB  = $(CROSS_COMPILER)ranlib
-# XXX get netboot old addresss
-BIOS_NETBOOT =
 
 CFLAGS = 
 LDFLAGS = -nostdlib -nodefaultlibs
@@ -51,7 +49,7 @@ targets: $(TARGETS)
 %.elf:
 	@mkdir -p $(dir $@)
 	@echo [LD] $@
-	$(LD) $(LD_OBJECTS) $(LDFLAGS) $(TARGET_LDFLAGS) -o $@ 
+	@$(LD) $(LD_OBJECTS) $(LDFLAGS) $(TARGET_LDFLAGS) -o $@ 
 
 build/%.o: sources/%.c
 	@mkdir -p $(dir $@)
@@ -73,10 +71,6 @@ build/%.o: sources/%.S
 	@echo [AR] $@
 	@$(AR) clr $@ $^
 	@$(RANLIB) $@
-
-bios-netboot:
-	# XXX get netboot old addresss
-	echo 0x`$(OBJDUMP) binary/bios/bios.elf -t | grep netboot | cut -f 1 -d " "` > /tmp/addr
 
 info:
 	@echo TARGETS [$(TARGETS)]

@@ -31,6 +31,7 @@ OBJCOPY = $(CROSS_COMPILER)objcopy
 OBJDUMP = $(CROSS_COMPILER)objdump
 RANLIB  = $(CROSS_COMPILER)ranlib
 TOOLS = ../eric_tools
+ERIC = ../eric
 
 CFLAGS = 
 LDFLAGS = -nostdlib -nodefaultlibs
@@ -51,6 +52,7 @@ targets: $(TARGETS)
 
 %.rom: %.bin $(TOOLS)/bin2hex
 	@$(TOOLS)/bin2hex $< $@ 16384 32
+	@cp $@ $(ERIC)/sources/cores/bram/rtl
 
 %.bin: %.elf $(TOOLS)/mkmmimg
 	@echo [OC] $@

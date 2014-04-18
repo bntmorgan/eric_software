@@ -3,14 +3,13 @@ dirstack_$(sp)  := $(d)
 d               := $(dir)
 
 TARGET					:= $(call SRC_2_BIN, $(d)/bios.elf)
-TARGETS 				+= $(TARGET)
+TARGETS 				+= $(call ELF_2_BIN, $(TARGET))
 OBJS_$(d)				:= $(call SRC_2_OBJ, $(d)/crt0.o $(d)/isr.o $(d)/main.o)
 
 OBJECTS 				+= $(OBJS_$(d))
 
 $(OBJS_$(d))		:  INCLUDES_NOLIBC := -nostdinc -Isources/include/base
-$(OBJS_$(d))		:  INCLUDES := $(INCLUDES_NOLIBC) -Isources/include \
-	-Isources/tools
+$(OBJS_$(d))		:  INCLUDES := $(INCLUDES_NOLIBC) -Isources/include
 $(OBJS_$(d))		:  OBJ_CFLAGS	:= -I$(d) -Isources/includes -O0 -Wall -Werror \
 	-Wstrict-prototypes -Wold-style-definition -Wshadow -mbarrel-shift-enabled \
 	-mmultiply-enabled -mdivide-enabled -msign-extend-enabled -fno-builtin \

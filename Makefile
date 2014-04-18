@@ -12,6 +12,10 @@ define ELF_2_BIN
   $(foreach src,$(1),$(patsubst %elf,%bin,$(src)))
 endef
 
+define ELF_2_ROM
+  $(foreach src,$(1),$(patsubst %elf,%rom,$(src)))
+endef
+
 ################################## STARTING RULE ###############################
 
 all: targets
@@ -26,6 +30,7 @@ LD = $(CROSS_COMPILER)ld
 OBJCOPY = $(CROSS_COMPILER)objcopy
 OBJDUMP = $(CROSS_COMPILER)objdump
 RANLIB  = $(CROSS_COMPILER)ranlib
+TOOLS = ../eric_tools
 
 CFLAGS = 
 LDFLAGS = -nostdlib -nodefaultlibs
@@ -44,7 +49,15 @@ include	$(dir)/rules.mk
 
 targets: $(TARGETS)
 
-%.bin: %.elf
+%.rom: %.bin $(TOOLS)/bin2hex
+	@$(TOOLS)/bin2hex $< $@ 16384 32
+
+%.bin: %.elf $(TOOLS)/mkmmimg
+	@echo [OC] $@
+	@touch $@
+	@$(OBJCOPY) $(TARGET_SEGMENTS) -O binary $< $@
+	@echo -n "---- "
+	@$(TOOLS)/mkmmimg $@ write
 
 %.elf:
 	@mkdir -p $(dir $@)
@@ -80,6 +93,10 @@ clean:
 	@echo [CLR] $(TARGETS)
 	@echo [CLR] $(OBJECTS)
 	@rm -fr $(dir $(TARGETS)) $(OBJECTS)
+
+$(TOOLS)/%:
+	@echo [TOOLS] $@
+	@make -s -C $(TOOLS)
 
 mr-proper: mr-proper-vim clean
 

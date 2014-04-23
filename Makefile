@@ -32,6 +32,7 @@ OBJDUMP = $(CROSS_COMPILER)objdump
 RANLIB  = $(CROSS_COMPILER)ranlib
 TOOLS = ../eric_tools
 ERIC = ../eric
+TFTPY = ../tftpy
 
 CFLAGS = 
 LDFLAGS = -nostdlib -nodefaultlibs
@@ -48,13 +49,13 @@ include	$(dir)/rules.mk
 
 ################################## RULES #######################################
 
-targets: $(TARGETS)
+targets: $(TOOLS)/bin2hex $(TOOLS)/mkmmimg $(TARGETS)
 
-%.rom: %.bin $(TOOLS)/bin2hex
+%.rom: %.bin
 	@$(TOOLS)/bin2hex $< $@ 16384 32
 	@cp $@ $(ERIC)/sources/cores/bram/rtl
 
-%.bin: %.elf $(TOOLS)/mkmmimg
+%.bin: %.elf
 	@echo [OC] $@
 	@touch $@
 	@$(OBJCOPY) $(TARGET_SEGMENTS) -O binary $< $@
@@ -105,3 +106,11 @@ mr-proper: mr-proper-vim clean
 mr-proper-vim:
 	@echo [CLR] *.swp
 	@find . | grep .swp | xargs rm -f
+
+boot.bin: binary/bios-sstic/bios.bin
+	@echo [CP] $^ $(TFTPY)/root/$@
+	@cp $^ $(TFTPY)/root/$@
+
+bios.rom: binary/bios/bios.rom
+	@echo [CP] $^ $(ERIC)/sources/cores/bram/rtl/$@
+	@cp $^ $(ERIC)/sources/cores/bram/rtl/$@

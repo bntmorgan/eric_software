@@ -84,7 +84,7 @@ void checker_single_start(int low_value, int high_value) {
     } else {
       printf("Waiting again !\n");
       wait();
-      if (cpt < 20) {
+      if (cpt < 40) {
         cpt++;
       } else {
         printf("Number of waits exeeded\n");

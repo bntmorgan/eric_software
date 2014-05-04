@@ -6,7 +6,7 @@ TARGET					:= $(call SRC_2_BIN, $(d)/libbase-light.a)
 TARGETS 				+= $(TARGET)
 OBJS_$(d)				:= $(call SRC_2_OBJ, $(d)/libc.o $(d)/crc32.o $(d)/console.o \
 	$(d)/blockdev.o $(d)/fatfs.o $(d)/system.o $(d)/board.o $(d)/uart.o \
-	$(d)/checker.o $(d)/vsnprintf-nofloat.o)
+	$(d)/checker.o $(d)/checker_int.o $(d)/vsnprintf-nofloat.o)
 
 OBJECTS 				+= $(OBJS_$(d))
 

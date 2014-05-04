@@ -41,8 +41,14 @@
 #include <hal/ukb.h>
 
 #include <net/microudp.h>
+#include <net/tftp.h>
 
 #include <checker.h>
+#include <checker_int.h>
+
+static unsigned char mac[] = {0x00, 0x0a, 0x35, 0x01, 0x8e, 0xb4};
+static unsigned char lip[] = {192, 168, 0, 42};
+static unsigned char rip[] = {192, 168, 0, 14};
 
 /* General address space functions */
 static const char banner[]=
@@ -133,12 +139,14 @@ static char *get_token(char **str)
 
 static void help(void)
 {
-	puts("Milkymist(tm) BIOS (bootloader)");
-	puts("Don't know what to do? Try 'flashboot'.\n");
+	puts("ERIC BIOS (dumb & dumber version)");
 	puts("Available commands:");
-	puts("cons       - switch console mode");
 	puts("help       - help");
-	puts("reboot     - system reset");
+	puts("netboot    - netboot system");
+  puts("dummy      - checker dummy mode start");
+	puts("mpu_dl     - tftp download checker mpu binary : mpu.bin");
+	puts("single     - starts checker in simple mode, running one time mpu");
+	puts("dump       - Dumps the 0x100 first bytes of the mpu program");
 }
 
 void bios_netboot(void);
@@ -148,10 +156,33 @@ static void do_command(char *c)
 	char *token;
 	token = get_token(&c);
 
-	if(strcmp(token, "netboot") == 0) {
+	if(strcmp(token, "help") == 0) {
+    help();
+  } else if(strcmp(token, "netboot") == 0) {
     printf("Adresse de bios_netboot 0x%08x\n", &bios_netboot);
     bios_netboot();
-  } else if(strcmp(token, "help") == 0) help();
+  } else if(strcmp(token, "dummy") == 0) {
+    printf("Checker dummy start\n");
+    checker_dummy_start(0x20000000, 0x0);
+  } else if(strcmp(token, "mpu_dl") == 0) {
+    int r;
+    int ip = IPTOINT(rip[0], rip[1], rip[2], rip[3]);
+    char *ptr = (char *)0x20000000;
+	  r = tftp_get(ip, "mpu.bin", ptr);
+    printf("Received %d bytes\n", r);
+  } else if(strcmp(token, "single") == 0) {
+    checker_single_start(0, 0);
+  } else if(strcmp(token, "dump") == 0) {
+    int i;
+    char *ptr = (char *)0x20000000;
+    for (i = 0; i < 0x100; i = i + 0x10) {
+      printf("%04x %04x %04x %04x %04x %04x %04x %04x\n",
+          (ptr[i+0] << 8) | ptr[i+1], (ptr[i+2] << 8) | ptr[i+3],
+          (ptr[i+4] << 8) | ptr[i+5], (ptr[i+6] << 8) | ptr[i+7],
+          (ptr[i+8] << 8) |  ptr[i+9], (ptr[i+10] << 8) | ptr[i+11],
+          (ptr[i+12] << 8) | ptr[i+13], (ptr[i+14] << 8) | ptr[i+15]);
+    }
+  }
 }
 
 void prompt(void) {
@@ -202,9 +233,6 @@ void print_pc(void) {
   printf("Last called function had pc at 0x%04x\n", pc);
 }
 
-static unsigned char mac[] = {0x00, 0x0a, 0x35, 0x01, 0x8e, 0xb4};
-static unsigned char lip[] = {192, 168, 0, 42};
-
 int main(int i, char **c)
 {
 	CSR_GPIO_OUT = GPIO_LED1;
@@ -222,13 +250,15 @@ int main(int i, char **c)
   print_pc();
 	crcbios();
 	brd_init();
+  
+  // checker_memory_test();
 
   microudp_start(mac, IPTOINT(lip[0], lip[1], lip[2], lip[3]));
 
+  // checker_int_test();
+
 	while(1) {
     prompt();
-    printf("Checker dummy start\n");
-    checker_dummy_start(0x20000000, 0x0);
 	}
 
 	return 0;

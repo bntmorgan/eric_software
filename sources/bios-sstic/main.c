@@ -46,8 +46,8 @@
 #include <checker.h>
 #include <checker_int.h>
 
-static unsigned char mac[] = {0x00, 0x0a, 0x35, 0x01, 0x8e, 0xb4};
-static unsigned char lip[] = {192, 168, 0, 42};
+// static unsigned char mac[] = {0x00, 0x0a, 0x35, 0x01, 0x8e, 0xb4};
+// static unsigned char lip[] = {192, 168, 0, 42};
 static unsigned char rip[] = {192, 168, 0, 14};
 
 /* General address space functions */
@@ -58,15 +58,15 @@ static const char banner[]=
 
 static void dummy_write_hook(char c)
 {
-    unsigned int oldmask;
-	unsigned int i;
+  unsigned int oldmask;
+  unsigned int i;
 
-    oldmask = irq_getmask();
-    irq_setmask(0);
+  oldmask = irq_getmask();
+  irq_setmask(0);
 
-	for (i=0; i<0x1000; i++) asm("nop;");
+  for (i=0; i<0x1000; i++) asm("nop;");
 
-    irq_setmask(oldmask);
+  irq_setmask(oldmask);
 }
 
 static int dummy_read_nonblock_hook(void)
@@ -142,14 +142,14 @@ static void help(void)
 	puts("ERIC BIOS (dumb & dumber version)");
 	puts("Available commands:");
 	puts("help       - help");
-	puts("netboot    - netboot system");
+	puts("reboot    - soft reboot system");
   puts("dummy      - checker dummy mode start");
 	puts("mpu_dl     - tftp download checker mpu binary : mpu.bin");
 	puts("single     - starts checker in simple mode, running one time mpu");
 	puts("dump       - Dumps the 0x100 first bytes of the mpu program");
 }
 
-void bios_netboot(void);
+void reset(void);
 
 static void do_command(char *c)
 {
@@ -158,9 +158,9 @@ static void do_command(char *c)
 
 	if(strcmp(token, "help") == 0) {
     help();
-  } else if(strcmp(token, "netboot") == 0) {
-    printf("Adresse de bios_netboot 0x%08x\n", &bios_netboot);
-    bios_netboot();
+  } else if(strcmp(token, "reboot") == 0) {
+    printf("Adresse de _reset_handler 0x%08x\n", &reset);
+    reset();
   } else if(strcmp(token, "dummy") == 0) {
     printf("Checker dummy start\n");
     checker_dummy_start(0x20000000, 0x0);
@@ -171,7 +171,7 @@ static void do_command(char *c)
 	  r = tftp_get(ip, "mpu.bin", ptr);
     printf("Received %d bytes\n", r);
   } else if(strcmp(token, "single") == 0) {
-    checker_single_start(0, 0);
+    checker_single_start(0, 0x1000);
   } else if(strcmp(token, "dump") == 0) {
     int i;
     char *ptr = (char *)0x20000000;
@@ -239,7 +239,7 @@ int main(int i, char **c)
 	rescue = !((unsigned int)main > FLASH_OFFSET_REGULAR_BIOS);
 
 	irq_setmask(0);
-	irq_enable(1);
+	irq_enable(IRQ_UART);
 	uart_init();
   checker_init();
 
@@ -253,7 +253,7 @@ int main(int i, char **c)
   
   // checker_memory_test();
 
-  microudp_start(mac, IPTOINT(lip[0], lip[1], lip[2], lip[3]));
+  // microudp_start(mac, IPTOINT(lip[0], lip[1], lip[2], lip[3]));
 
   // checker_int_test();
 

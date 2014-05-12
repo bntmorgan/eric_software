@@ -52,8 +52,8 @@ include	$(dir)/rules.mk
 targets: $(TOOLS)/bin2hex $(TOOLS)/mkmmimg $(TARGETS)
 
 %.rom: %.bin
-	@$(TOOLS)/bin2hex $< $@ 16384 32
-	@cp $@ $(ERIC)/sources/cores/bram/rtl
+	$(TOOLS)/bin2hex $< $@ 16384 32
+	cp $@ $(ERIC)/sources/cores/bram/rtl
 
 %.bin: %.elf
 	@echo [OC] $@
@@ -65,7 +65,7 @@ targets: $(TOOLS)/bin2hex $(TOOLS)/mkmmimg $(TARGETS)
 %.elf:
 	@mkdir -p $(dir $@)
 	@echo [LD] $@
-	@$(LD) $(LD_OBJECTS) $(LDFLAGS) $(TARGET_LDFLAGS) -o $@ 
+	@$(LD) $(LDFLAGS) $(LD_OBJECTS) $(TARGET_LDFLAGS) -N -o $@ 
 
 build/%.o: sources/%.c
 	@mkdir -p $(dir $@)

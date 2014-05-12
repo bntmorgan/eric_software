@@ -15,10 +15,10 @@ $(OBJS_$(d))		:  OBJ_CFLAGS	:= -I$(d) -Isources/includes -O0 -Wall -Werror \
 	-mmultiply-enabled -mdivide-enabled -msign-extend-enabled -fno-builtin \
 	-fsigned-char -fsingle-precision-constant $(INCLUDES)
 
-$(TARGET)				:  TARGET_LDFLAGS	:= -T $(d)/linker.ld --start-group \
-	-lbase-light -lhal -lnet --end-group -Lbinary/libbase -Lbinary/libhal \
-	-Lbinary/libnet --defsym=bios_netboot=0x`$(OBJDUMP) binary/bios/bios.elf -t \
-	| grep netboot | cut -f 1 -d " "`
+$(TARGET)				:  TARGET_LDFLAGS	:= -T $(d)/linker.ld -Lbinary/libbase \
+	-Lbinary/libhal -Lbinary/libnet --start-group -lbase-light -lhal -lnet \
+	--end-group --defsym=reset=0x`$(OBJDUMP) binary/bios/bios.elf -t \
+	| grep _reset_handler | cut -f 1 -d " "`
 $(TARGET)				:  $(OBJS_$(d)) binary/libbase/libbase-light.a \
 	binary/libhal/libhal.a binary/libnet/libnet.a  binary/bios/bios.elf
 $(TARGET)				:  LD_OBJECTS := $(OBJS_$(d))

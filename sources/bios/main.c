@@ -727,28 +727,28 @@ void pcie_cfg_rd(void) {
 
 static void dummy_write_hook(char c)
 {
-    unsigned int oldmask;
+  unsigned int oldmask;
 	unsigned int i;
 
-    oldmask = irq_getmask();
-    irq_setmask(0);
+  oldmask = irq_getmask();
+  irq_setmask(0);
 
-	for (i=0; i<0x1000; i++) asm("nop;");
+  for (i=0; i<0x1000; i++) asm("nop;");
 
-    irq_setmask(oldmask);
+  irq_setmask(oldmask);
 }
 
 static int dummy_read_nonblock_hook(void)
 {
-    unsigned int oldmask;
-	unsigned int i;
+  unsigned int oldmask;
+  unsigned int i;
 
-    oldmask = irq_getmask();
-    irq_setmask(0);
+  oldmask = irq_getmask();
+  irq_setmask(0);
 
-	for (i=0; i<0x1000; i++) asm("nop;");
+  for (i=0; i<0x1000; i++) asm("nop;");
 
-    irq_setmask(oldmask);
+  irq_setmask(oldmask);
 
 	return 0;
 }
@@ -757,64 +757,30 @@ int main(int i, char **c)
 {
 	char buffer[64];
 
-#ifdef FIXME
-	/* lock gdbstub ROM */
-	CSR_DBG_CTRL = DBG_CTRL_GDB_ROM_LOCK;
-
-	/* enable bus errors */
-	CSR_DBG_CTRL = DBG_CTRL_BUS_ERR_EN;
-#endif
-
 	CSR_GPIO_OUT = GPIO_LED1;
 	rescue = !((unsigned int)main > FLASH_OFFSET_REGULAR_BIOS);
 
 	irq_setmask(0);
 	irq_enable(IRQ_UART);
 	uart_init();
-
-#ifdef FIXME
-	vga_init(!(rescue || (CSR_GPIO_IN & GPIO_BTN2)));
-#endif
 	
 	console_set_write_hook(dummy_write_hook);
 	console_set_read_hook(NULL, dummy_read_nonblock_hook);
-	putsnonl(banner);
-  unsigned int pc = 0;
-  __asm__ __volatile__(
-      "mv %0,r29;"
-      : "=r"(pc): );
-  printf("Return address 0x%04x\n", pc);
-  printf("Address of netboot 0x%08x\n", &netboot);
+  putsnonl(banner);
 
-	crcbios();
-	brd_init();
-#ifdef FIXME
-	tmu_init(); /* < for hardware-accelerated scrolling */
-	usb_init();
-	ukb_init();
-#endif
+  crcbios();
+  brd_init();
 
 	if(rescue)
 		printf("I: Booting in rescue mode\n");
-#if FIXME
-	splash_display();
-#endif
 
 	ethreset(); /* < that pesky ethernet PHY needs two resets at times... */
-#if FIXME
-	print_mac();
-	boot_sequence();
-	vga_unblank();
-	vga_set_console(1);
-#endif
 
-	// irq_setmask(IRQ_PCIE);
 	while(1) {
 		int z, k;
 		for (k=0; k < 0x100; k++)
 			for (z=0; z< 0x1000; z++)
 				asm("nop;");
-		// pcie_cfg_rd();
 		putsnonl("\e[1mBIOS>\e[0m ");
 		readstr(buffer, 64);
 		do_command(buffer);

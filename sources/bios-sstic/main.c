@@ -46,8 +46,8 @@
 #include <checker.h>
 #include <checker_int.h>
 
-// static unsigned char mac[] = {0x00, 0x0a, 0x35, 0x01, 0x8e, 0xb4};
-// static unsigned char lip[] = {192, 168, 0, 42};
+static unsigned char mac[] = {0x00, 0x0a, 0x35, 0x01, 0x8e, 0xb4};
+static unsigned char lip[] = {192, 168, 0, 42};
 static unsigned char rip[] = {192, 168, 0, 14};
 
 /* General address space functions */
@@ -166,6 +166,7 @@ static void do_command(char *c)
     checker_dummy_start(0x20000000, 0x0);
   } else if(strcmp(token, "mpu_dl") == 0) {
     int r;
+    microudp_start(mac, IPTOINT(lip[0], lip[1], lip[2], lip[3]));
     int ip = IPTOINT(rip[0], rip[1], rip[2], rip[3]);
     char *ptr = (char *)0x20000000;
 	  r = tftp_get(ip, "mpu.bin", ptr);
@@ -252,9 +253,6 @@ int main(int i, char **c)
 	brd_init();
   
   // checker_memory_test();
-
-  // microudp_start(mac, IPTOINT(lip[0], lip[1], lip[2], lip[3]));
-
   // checker_int_test();
 
 	while(1) {

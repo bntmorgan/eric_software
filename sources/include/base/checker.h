@@ -10,4 +10,6 @@ void checker_init(void);
 
 void checker_memory_test(void);
 
+void checker_print_hm_stat(void);
+
 #endif /* __CHECKER_H */

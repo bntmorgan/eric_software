@@ -147,6 +147,7 @@ static void help(void)
 	puts("mpu_dl     - tftp download checker mpu binary : mpu.bin");
 	puts("single     - starts checker in simple mode, running one time mpu");
 	puts("dump       - Dumps the 0x100 first bytes of the mpu program");
+	puts("hm_stat    - Displays host memory module stats");
 }
 
 void reset(void);
@@ -173,6 +174,8 @@ static void do_command(char *c)
     printf("Received %d bytes\n", r);
   } else if(strcmp(token, "single") == 0) {
     checker_single_start(0, 0x1000);
+  } else if(strcmp(token, "hm_stat") == 0) {
+  checker_print_hm_stat();
   } else if(strcmp(token, "dump") == 0) {
     int i;
     char *ptr = (char *)0x20000000;
@@ -242,7 +245,6 @@ int main(int i, char **c)
 	irq_setmask(0);
 	irq_enable(IRQ_UART);
 	uart_init();
-  checker_init();
 
 	console_set_write_hook(dummy_write_hook);
 	console_set_read_hook(NULL, dummy_read_nonblock_hook);

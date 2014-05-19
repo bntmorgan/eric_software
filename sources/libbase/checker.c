@@ -20,6 +20,7 @@ void checker_init(void) {
   int mask;
 
   checker_end = 0;
+  checker_error = 0;
 
 	irq_ack(IRQ_CHECKER);
 
@@ -46,15 +47,26 @@ void checker_isr(void) {
 	irq_ack(IRQ_CHECKER);
 }
 
-#define CHECKER_SINGLE_MAX 0x08
+void checker_print_hm_stat(void) {
+  int stat_trn, stat_trn_cpt_rx, stat_trn_cpt_tx;
+  stat_trn = CHECKER_CSR_STAT_TRN;
+  stat_trn_cpt_rx = CHECKER_CSR_STAT_TRN_CPT >> 16;
+  stat_trn_cpt_tx = CHECKER_CSR_STAT_TRN_CPT & 0xffff;
+  printf("cpt_rx(0x%04x) cpt_tx(0x%04x)\n", stat_trn_cpt_rx, stat_trn_cpt_tx);
+  printf("lnk_up(%01x), rsrc_rdy_n(%01x), tdst_rdy_n(%01x), "
+      "trn_tbuf_av(%02x), state_b(%01x), state_a(%01x), state_rx(%01x), "
+      "state_tx(%01x), cpt_drop(%02x)\n", (stat_trn >> 0) & 1,
+      (stat_trn >> 1) & 1, (stat_trn >> 2) & 1, (stat_trn >> 3) & 0x3f,
+      (stat_trn >> 9) & 3, (stat_trn >> 11) & 3, (stat_trn >> 13) & 3,
+      (stat_trn >> 15) & 3, (stat_trn >> 17) & 0xff);
+}
 
 void checker_single_start(int low_value, int high_value) {
-  int ctrl, low, high, ud, cpt = 0;
+  int ctrl, low, high, ud, cpt = 0, stat_trn, stat_trn_cpt_rx, stat_trn_cpt_tx;
 
   // Reset checker_int
+  checker_init();
   checker_int_init();
-  checker_end = 0;
-  checker_error = 0;
 
   // Set the values : Actually address is use like a counter
   CHECKER_CSR_ADDRESS_LOW = low_value;
@@ -64,11 +76,18 @@ void checker_single_start(int low_value, int high_value) {
   low = CHECKER_CSR_ADDRESS_LOW;
   high = CHECKER_CSR_ADDRESS_HIGH;
 
+  // Stops the last launch
+  ctrl = 0x0;
+  printf("ctrl stop checker : 0x%08x\n", ctrl);
+  CHECKER_CSR_CTRL = ctrl;
   // Enable interrupts and start checker in dummy mode
   ctrl = CHECKER_CTRL_IRQ_EN | CHECKER_CTRL_MODE_SINGLE | CHECKER_CTRL_START;
   printf("start CTRL 0x%08x\n", ctrl);
   // Ziehen !
   CHECKER_CSR_CTRL = ctrl;
+  printf("CTRL after start 0x%08x\n", CHECKER_CSR_CTRL);
+
+  checker_print_hm_stat();
 
   // Wait for the end of time lulz
   while (1) {
@@ -82,9 +101,13 @@ void checker_single_start(int low_value, int high_value) {
       }
       break;
     } else {
-      printf("Waiting again !\n");
+      stat_trn = CHECKER_CSR_STAT_TRN;
+      stat_trn_cpt_rx = CHECKER_CSR_STAT_TRN_CPT >> 16;
+      stat_trn_cpt_tx = CHECKER_CSR_STAT_TRN_CPT & 0xffff;
+      printf("Waiting again : %08x\n", cpt);
+      checker_print_hm_stat();
       wait();
-      if (cpt < 100) {
+      if (cpt < 5) {
         cpt++;
       } else {
         printf("Number of waits exeeded\n");
@@ -98,8 +121,8 @@ void checker_dummy_start(int low_value, int high_value) {
   int ctrl, low, high, ud, cpt = 0;
 
   // Reset checker_int
+  checker_init();
   checker_int_init();
-  checker_end = 0;
 
   // Set the values : Actually address is use like a counter
   CHECKER_CSR_ADDRESS_LOW = low_value;
@@ -111,11 +134,15 @@ void checker_dummy_start(int low_value, int high_value) {
 
   printf("Low 0x%08x, high 0x%0x\n", low, high);
 
+  // Stops the last launch
+  ctrl = 0x0;
+  printf("ctrl stop checker : 0x%08x\n", ctrl);
   // Enable interrupts and start checker in dummy mode
   ctrl = CHECKER_CTRL_IRQ_EN | CHECKER_CTRL_MODE_DUMMY | CHECKER_CTRL_START;
   printf("start CTRL 0x%08x\n", ctrl);
   // Ziehen !
   CHECKER_CSR_CTRL = ctrl; 
+  printf("CTRL after start 0x%08x\n", CHECKER_CSR_CTRL);
 
   // Wait for the end of time lulz
   while (1) {

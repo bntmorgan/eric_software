@@ -49,6 +49,8 @@ enum {
 	CSR_WP0, CSR_WP1, CSR_WP2, CSR_WP3,
 };
 
+int booted = 0;
+
 /* General address space functions */
 
 #define NUMBER_OF_BYTES_ON_A_LINE 16
@@ -776,14 +778,19 @@ int main(int i, char **c)
 
 	ethreset(); /* < that pesky ethernet PHY needs two resets at times... */
 
-	while(1) {
-		int z, k;
-		for (k=0; k < 0x100; k++)
-			for (z=0; z< 0x1000; z++)
-				asm("nop;");
-		putsnonl("\e[1mBIOS>\e[0m ");
-		readstr(buffer, 64);
-		do_command(buffer);
-	}
+  if (booted) {
+    netboot();
+  } else {
+    booted = 1;
+    while(1) {
+      int z, k;
+      for (k=0; k < 0x100; k++)
+        for (z=0; z< 0x1000; z++)
+          asm("nop;");
+      putsnonl("\e[1mBIOS>\e[0m ");
+      readstr(buffer, 64);
+      do_command(buffer);
+    }
+  }
 	return 0;
 }

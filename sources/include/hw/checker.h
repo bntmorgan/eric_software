@@ -9,6 +9,8 @@
 #define CHECKER_CSR_STAT              MMPTR(0xe000f00C)
 #define CHECKER_CSR_MODE_DATA_LOW     MMPTR(0xe000f010)
 #define CHECKER_CSR_MODE_DATA_HIGH    MMPTR(0xe000f014)
+#define CHECKER_CSR_STAT_TRN_CPT      MMPTR(0xe000f018)
+#define CHECKER_CSR_STAT_TRN          MMPTR(0xe000f01C)
 
 // Modes
 #define CHECKER_MODE_SINGLE           (0)

@@ -12,6 +12,9 @@
 #define CHECKER_CSR_STAT_TRN_CPT      MMPTR(0xe000f018)
 #define CHECKER_CSR_STAT_TRN          MMPTR(0xe000f01C)
 
+#define CHECKER_ADDR_MPU              0x20000000
+#define CHECKER_ADDR_HM               0x20008000
+
 // Modes
 #define CHECKER_MODE_SINGLE           (0)
 #define CHECKER_MODE_AUTO             (1)

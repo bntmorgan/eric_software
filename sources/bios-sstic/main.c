@@ -33,6 +33,7 @@
 #include <hw/flash.h>
 #include <hw/minimac.h>
 #include <hw/interrupts.h>
+#include <hw/checker.h>
 
 #include <hal/vga.h>
 #include <hal/tmu.h>
@@ -142,15 +143,14 @@ static void help(void)
 	puts("ERIC BIOS (dumb & dumber version)");
 	puts("Available commands:");
 	puts("help       - help");
-	puts("reboot    - soft reboot system");
+	puts("reboot     - hard reboot system");
   puts("dummy      - checker dummy mode start");
 	puts("mpu_dl     - tftp download checker mpu binary : mpu.bin");
 	puts("single     - starts checker in simple mode, running one time mpu");
 	puts("dump       - Dumps the 0x100 first bytes of the mpu program");
 	puts("hm_stat    - Displays host memory module stats");
+	puts("hm_dump    - Dumps the 0x100 first bytes of the page read in hm");
 }
-
-void reset(void);
 
 static void do_command(char *c)
 {
@@ -160,32 +160,57 @@ static void do_command(char *c)
 	if(strcmp(token, "help") == 0) {
     help();
   } else if(strcmp(token, "reboot") == 0) {
-    printf("Adresse de _reset_handler 0x%08x\n", &reset);
-    reset();
+    printf("Adresse de reboot 0x%08x\n", &reboot);
+    reboot();
   } else if(strcmp(token, "dummy") == 0) {
     printf("Checker dummy start\n");
-    checker_dummy_start(0x20000000, 0x0);
+    checker_dummy_start(CHECKER_ADDR_MPU, 0x0);
   } else if(strcmp(token, "mpu_dl") == 0) {
     int r;
     microudp_start(mac, IPTOINT(lip[0], lip[1], lip[2], lip[3]));
     int ip = IPTOINT(rip[0], rip[1], rip[2], rip[3]);
     char *ptr = (char *)0x20000000;
 	  r = tftp_get(ip, "mpu.bin", ptr);
+    // We clear the cache to be sure that every instruction is written to the
+    // MPU shared memory
+    flush_cpu_dcache();
     printf("Received %d bytes\n", r);
   } else if(strcmp(token, "single") == 0) {
     checker_single_start(0, 0x1000);
   } else if(strcmp(token, "hm_stat") == 0) {
-  checker_print_hm_stat();
+    checker_print_hm_stat();
+  } else if(strcmp(token, "hm_dump") == 0) {
+    int i;
+    char *ptr = (char *)CHECKER_ADDR_HM;
+    for (i = 0; i < 0x100; i = i + 0x10) {
+      printf(
+          "0x%02x : "
+          "%02x %02x %02x %02x  %02x %02x %02x %02x  "
+          "%02x %02x %02x %02x  %02x %02x %02x %02x\n", i,
+          ptr[i+0], ptr[i+1], ptr[i+2], ptr[i+3],
+          ptr[i+4], ptr[i+5], ptr[i+6], ptr[i+7],
+          ptr[i+8], ptr[i+9], ptr[i+10], ptr[i+11],
+          ptr[i+12], ptr[i+13], ptr[i+14], ptr[i+15]);
+    }
   } else if(strcmp(token, "dump") == 0) {
     int i;
-    char *ptr = (char *)0x20000000;
+    char *ptr = (char *)CHECKER_ADDR_MPU;
     for (i = 0; i < 0x100; i = i + 0x10) {
-      printf("%04x %04x %04x %04x %04x %04x %04x %04x\n",
-          (ptr[i+0] << 8) | ptr[i+1], (ptr[i+2] << 8) | ptr[i+3],
-          (ptr[i+4] << 8) | ptr[i+5], (ptr[i+6] << 8) | ptr[i+7],
-          (ptr[i+8] << 8) |  ptr[i+9], (ptr[i+10] << 8) | ptr[i+11],
-          (ptr[i+12] << 8) | ptr[i+13], (ptr[i+14] << 8) | ptr[i+15]);
+      printf(
+          "0x%02x : "
+          "%02x %02x %02x %02x  %02x %02x %02x %02x  "
+          "%02x %02x %02x %02x  %02x %02x %02x %02x\n", i,
+          ptr[i+0], ptr[i+1], ptr[i+2], ptr[i+3],
+          ptr[i+4], ptr[i+5], ptr[i+6], ptr[i+7],
+          ptr[i+8], ptr[i+9], ptr[i+10], ptr[i+11],
+          ptr[i+12], ptr[i+13], ptr[i+14], ptr[i+15]);
     }
+  } else if(strcmp(token, "tr") == 0) {
+    printf("YOLORD %x\n", *((int *)CHECKER_ADDR_MPU + 0x1000)); 
+  } else if(strcmp(token, "tw") == 0) {
+    *((int *)CHECKER_ADDR_MPU + 0x1000) = 0x1;
+  } else if(strcmp(token, "trst") == 0) {
+    *((int *)CHECKER_ADDR_MPU + 0x1000) = 0x0;
   }
 }
 

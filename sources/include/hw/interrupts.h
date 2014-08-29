@@ -22,7 +22,9 @@
 #define IRQ_GPIO		        (0x00000002) /* 1 */
 #define IRQ_TIMER0		      (0x00000004) /* 2 */
 #define IRQ_TIMER1		      (0x00000008) /* 3 */
+#define IRQ_MPU             (0x00000010) /* 4 */
 #define IRQ_AC97CRREQUEST	  (0x00000010) /* 4 */
+#define IRQ_HM              (0x00000020) /* 5 */
 #define IRQ_AC97CRREPLY		  (0x00000020) /* 5 */
 #define IRQ_AC97DMAR		    (0x00000040) /* 6 */
 #define IRQ_AC97DMAW		    (0x00000080) /* 7 */
@@ -34,6 +36,5 @@
 #define IRQ_MIDI		        (0x00002000) /* 13 */
 #define IRQ_IR			        (0x00004000) /* 14 */
 #define IRQ_USB			        (0x00008000) /* 15 */
-#define IRQ_CHECKER         (0x00000010) /* 4 */
 
 #endif /* __HW_INTERRUPTS_H */

@@ -18,7 +18,7 @@
 #include <hw/interrupts.h>
 #include <irq.h>
 #include <uart.h>
-#include <checker.h>
+#include <mpu.h>
 
 #include <hal/usb.h>
 #include <hal/tmu.h>
@@ -40,7 +40,6 @@ void isr(void)
 		usb_isr();
 #endif
 
-	if (irqs & IRQ_CHECKER)
-		checker_isr();
-
+	if (irqs & IRQ_MPU)
+		mpu_isr();
 }

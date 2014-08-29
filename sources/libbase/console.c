@@ -96,7 +96,7 @@ int printf(const char *fmt, ...)
 {
 	va_list args;
 	int len;
-	char outbuf[256];
+	char outbuf[512];
 
 	va_start(args, fmt);
 	len = vscnprintf(outbuf, sizeof(outbuf), fmt, args);

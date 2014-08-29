@@ -33,7 +33,8 @@
 #include <hw/flash.h>
 #include <hw/minimac.h>
 #include <hw/interrupts.h>
-#include <hw/checker.h>
+#include <hw/mpu.h>
+#include <hw/csr_ddr3.h>
 
 #include <hal/vga.h>
 #include <hal/tmu.h>
@@ -44,8 +45,10 @@
 #include <net/microudp.h>
 #include <net/tftp.h>
 
-#include <checker.h>
-#include <checker_int.h>
+#include <mpu.h>
+#include <mpu_int.h>
+
+#include <csr_ddr3.h>
 
 static unsigned char mac[] = {0x00, 0x0a, 0x35, 0x01, 0x8e, 0xb4};
 static unsigned char lip[] = {192, 168, 0, 42};
@@ -138,18 +141,162 @@ static char *get_token(char **str)
 	return d;
 }
 
+/* General address space functions */
+
+#define NUMBER_OF_BYTES_ON_A_LINE 16
+static void dump_bytes(unsigned int *ptr, int count, unsigned addr)
+{
+	char *data = (char *)ptr;
+	int line_bytes = 0, i = 0;
+
+	putsnonl("Memory dump:");
+	while(count > 0){
+		line_bytes =
+			(count > NUMBER_OF_BYTES_ON_A_LINE)?
+				NUMBER_OF_BYTES_ON_A_LINE : count;
+
+		printf("\n0x%08x  ", addr);
+		for(i=0;i<line_bytes;i++)
+			printf("%02x ", *(unsigned char *)(data+i));
+
+		for(;i<NUMBER_OF_BYTES_ON_A_LINE;i++)
+			printf("   ");
+
+		printf(" ");
+
+		for(i=0;i<line_bytes;i++) {
+			if((*(data+i) < 0x20) || (*(data+i) > 0x7e))
+				printf(".");
+			else
+				printf("%c", *(data+i));
+		}
+
+		for(;i<NUMBER_OF_BYTES_ON_A_LINE;i++)
+			printf(" ");
+
+		data += (char)line_bytes;
+		count -= line_bytes;
+		addr += line_bytes;
+	}
+	printf("\n");
+}
+
+static void mr(char *startaddr, char *len)
+{
+	char *c;
+	unsigned int *addr;
+	unsigned int length;
+
+	if(*startaddr == 0) {
+		printf("mr <address> [length]\n");
+		return;
+	}
+	addr = (unsigned *)strtoul(startaddr, &c, 0);
+	if(*c != 0) {
+		printf("incorrect address\n");
+		return;
+	}
+	if(*len == 0) {
+		length = 1;
+	} else {
+		length = strtoul(len, &c, 0);
+		if(*c != 0) {
+			printf("incorrect length\n");
+			return;
+		}
+	}
+
+	dump_bytes(addr, length, (unsigned)addr);
+}
+
+static void mw(char *addr, char *value, char *count)
+{
+	char *c;
+	unsigned int *addr2;
+	unsigned int value2;
+	unsigned int count2;
+	unsigned int i;
+
+	if((*addr == 0) || (*value == 0)) {
+		printf("mw <address> <value> [count]\n");
+		return;
+	}
+	addr2 = (unsigned int *)strtoul(addr, &c, 0);
+	if(*c != 0) {
+		printf("incorrect address\n");
+		return;
+	}
+	value2 = strtoul(value, &c, 0);
+	if(*c != 0) {
+		printf("incorrect value\n");
+		return;
+	}
+	if(*count == 0) {
+		count2 = 1;
+	} else {
+		count2 = strtoul(count, &c, 0);
+		if(*c != 0) {
+			printf("incorrect count\n");
+			return;
+		}
+	}
+	for (i=0;i<count2;i++) *addr2++ = value2;
+}
+
+static void mc(char *dstaddr, char *srcaddr, char *count)
+{
+	char *c;
+	unsigned int *dstaddr2;
+	unsigned int *srcaddr2;
+	unsigned int count2;
+	unsigned int i;
+
+	if((*dstaddr == 0) || (*srcaddr == 0)) {
+		printf("mc <dst> <src> [count]\n");
+		return;
+	}
+	dstaddr2 = (unsigned int *)strtoul(dstaddr, &c, 0);
+	if(*c != 0) {
+		printf("incorrect destination address\n");
+		return;
+	}
+	srcaddr2 = (unsigned int *)strtoul(srcaddr, &c, 0);
+	if(*c != 0) {
+		printf("incorrect source address\n");
+		return;
+	}
+	if(*count == 0) {
+		count2 = 1;
+	} else {
+		count2 = strtoul(count, &c, 0);
+		if(*c != 0) {
+			printf("incorrect count\n");
+			return;
+		}
+	}
+	for (i=0;i<count2;i++) *dstaddr2++ = *srcaddr2++;
+}
+
 static void help(void)
 {
 	puts("ERIC BIOS (dumb & dumber version)");
 	puts("Available commands:");
 	puts("help       - help");
 	puts("reboot     - hard reboot system");
-  puts("dummy      - checker dummy mode start");
+  puts("mpu_start  - Start MPU");
 	puts("mpu_dl     - tftp download checker mpu binary : mpu.bin");
-	puts("single     - starts checker in simple mode, running one time mpu");
-	puts("dump       - Dumps the 0x100 first bytes of the mpu program");
+	puts("mpu_dump   - Dumps the 0x100 first bytes of the mpu program");
+	puts("hm_read    - start checker in host memory read mode on specified page");
 	puts("hm_stat    - Displays host memory module stats");
 	puts("hm_dump    - Dumps the 0x100 first bytes of the page read in hm");
+	puts("pci_info   - Prints information about the PCI state of the core");
+	puts("fc_info    - Prints information about the core flow control");
+	puts("mr         - read address space");
+	puts("mw         - write address space");
+	puts("mc         - copy address space");
+	puts("ddr_stat   - CSR ddr3 stat");
+	puts("ddr_read   - CSR ddr3 read");
+	puts("ddr_write  - CSR ddr3 write");
 }
 
 static void do_command(char *c)
@@ -162,55 +309,72 @@ static void do_command(char *c)
   } else if(strcmp(token, "reboot") == 0) {
     printf("Adresse de reboot 0x%08x\n", &reboot);
     reboot();
-  } else if(strcmp(token, "dummy") == 0) {
-    printf("Checker dummy start\n");
-    checker_dummy_start(CHECKER_ADDR_MPU, 0x0);
   } else if(strcmp(token, "mpu_dl") == 0) {
     int r;
     microudp_start(mac, IPTOINT(lip[0], lip[1], lip[2], lip[3]));
     int ip = IPTOINT(rip[0], rip[1], rip[2], rip[3]);
-    char *ptr = (char *)0x20000000;
+    char *ptr = (char *)&MPU_MEMORY_ADDR;
 	  r = tftp_get(ip, "mpu.bin", ptr);
     // We clear the cache to be sure that every instruction is written to the
     // MPU shared memory
     flush_cpu_dcache();
     printf("Received %d bytes\n", r);
-  } else if(strcmp(token, "single") == 0) {
-    checker_single_start(0, 0x1000);
+  } else if(strcmp(token, "mpu_start") == 0) {
+    mpu_start();
+  } else if(strcmp(token, "hm_read") == 0) {
+//     unsigned int low, high;
+//     low = atoi(get_token(&c));
+//     high = atoi(get_token(&c));
+//     checker_read_start(low, high);
   } else if(strcmp(token, "hm_stat") == 0) {
-    checker_print_hm_stat();
+//     checker_print_hm_stat();
   } else if(strcmp(token, "hm_dump") == 0) {
+//     unsigned int *ptr = (unsigned int *)CHECKER_ADDR_HM;
+// 	  dump_bytes(ptr, 0x100, (unsigned)ptr);
+  } else if(strcmp(token, "mpu_dump") == 0) {
+    unsigned int *ptr = (unsigned int *)&MPU_MEMORY_ADDR;
+	  dump_bytes(ptr, 0x100, (unsigned)ptr);
+  } else if(strcmp(token, "mr") == 0) { 
+    mr(get_token(&c), get_token(&c));
+  } else if(strcmp(token, "mw") == 0) {
+    mw(get_token(&c), get_token(&c), get_token(&c));
+  } else if(strcmp(token, "mc") == 0) {
+    mc(get_token(&c), get_token(&c), get_token(&c));
+  } else if(strcmp(token, "ddr_stat") == 0) {
+    csr_ddr3_print_stat();
+  } else if(strcmp(token, "ddr_read") == 0) {
     int i;
-    char *ptr = (char *)CHECKER_ADDR_HM;
-    for (i = 0; i < 0x100; i = i + 0x10) {
-      printf(
-          "0x%02x : "
-          "%02x %02x %02x %02x  %02x %02x %02x %02x  "
-          "%02x %02x %02x %02x  %02x %02x %02x %02x\n", i,
-          ptr[i+0], ptr[i+1], ptr[i+2], ptr[i+3],
-          ptr[i+4], ptr[i+5], ptr[i+6], ptr[i+7],
-          ptr[i+8], ptr[i+9], ptr[i+10], ptr[i+11],
-          ptr[i+12], ptr[i+13], ptr[i+14], ptr[i+15]);
+    void * addr = (void *)atoi(get_token(&c));
+    int j = atoi(get_token(&c));
+    for (i = 0; i < j; i++) {
+      csr_ddr3_read_256(addr + 4 * i);
+      if (!(CSR_DDR3_CSR_STAT & 0x2)) {
+        printf("Read command failed !\n");
+        break;
+      }
     }
-  } else if(strcmp(token, "dump") == 0) {
+  } else if(strcmp(token, "ddr_write") == 0) {
     int i;
-    char *ptr = (char *)CHECKER_ADDR_MPU;
-    for (i = 0; i < 0x100; i = i + 0x10) {
-      printf(
-          "0x%02x : "
-          "%02x %02x %02x %02x  %02x %02x %02x %02x  "
-          "%02x %02x %02x %02x  %02x %02x %02x %02x\n", i,
-          ptr[i+0], ptr[i+1], ptr[i+2], ptr[i+3],
-          ptr[i+4], ptr[i+5], ptr[i+6], ptr[i+7],
-          ptr[i+8], ptr[i+9], ptr[i+10], ptr[i+11],
-          ptr[i+12], ptr[i+13], ptr[i+14], ptr[i+15]);
+    void * addr = (void *)atoi(get_token(&c));
+    uint32_t v = atoi(get_token(&c));
+    int j = atoi(get_token(&c));
+    for (i = 0; i < j; i++) {
+      csr_ddr3_write_256(addr + 4 * i, v);
+      if (!(CSR_DDR3_CSR_STAT & 0x1)) {
+        printf("Write command failed !\n");
+        break;
+      }
     }
-  } else if(strcmp(token, "tr") == 0) {
-    printf("YOLORD %x\n", *((int *)CHECKER_ADDR_MPU + 0x1000)); 
-  } else if(strcmp(token, "tw") == 0) {
-    *((int *)CHECKER_ADDR_MPU + 0x1000) = 0x1;
-  } else if(strcmp(token, "trst") == 0) {
-    *((int *)CHECKER_ADDR_MPU + 0x1000) = 0x0;
+  } else if(strcmp(token, "pci_info") == 0) {
+//     checker_pci_dump_command(); printf("\n");
+//     checker_pci_dump_address(); printf("\n");
+//     checker_pci_dump_dstatus(); printf("\n");
+//     checker_pci_dump_dcommand(); printf("\n");
+//     checker_pci_dump_lstatus(); printf("\n");
+//     checker_pci_dump_lcommand(); printf("\n");
+//     checker_pci_dump_dcommand2();
+  } else if(strcmp(token, "fc_info") == 0) {
+//     checker_fc_dump_all();
   }
 }
 

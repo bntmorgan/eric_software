@@ -59,7 +59,7 @@ void flush_bridge_cache(void)
 __attribute__((noreturn)) void reboot(void)
 {
   // XXX
-  *((int *)CHECKER_ADDR_MPU + 0x1000) = 1;
+  *((int *)(CHECKER_ADDR_MPU + 0x1000)) = 1;
   flush_cpu_dcache();
 
 	uart_force_sync(1); /* flush UART buffers */

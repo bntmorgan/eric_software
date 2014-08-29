@@ -34,7 +34,6 @@
 #include <hw/minimac.h>
 #include <hw/interrupts.h>
 #include <hw/mpu.h>
-#include <hw/csr_ddr3.h>
 
 #include <hal/vga.h>
 #include <hal/tmu.h>
@@ -47,8 +46,6 @@
 
 #include <mpu.h>
 #include <mpu_int.h>
-
-#include <csr_ddr3.h>
 
 static unsigned char mac[] = {0x00, 0x0a, 0x35, 0x01, 0x8e, 0xb4};
 static unsigned char lip[] = {192, 168, 0, 42};
@@ -294,9 +291,6 @@ static void help(void)
 	puts("mr         - read address space");
 	puts("mw         - write address space");
 	puts("mc         - copy address space");
-	puts("ddr_stat   - CSR ddr3 stat");
-	puts("ddr_read   - CSR ddr3 read");
-	puts("ddr_write  - CSR ddr3 write");
 }
 
 static void do_command(char *c)
@@ -340,31 +334,6 @@ static void do_command(char *c)
     mw(get_token(&c), get_token(&c), get_token(&c));
   } else if(strcmp(token, "mc") == 0) {
     mc(get_token(&c), get_token(&c), get_token(&c));
-  } else if(strcmp(token, "ddr_stat") == 0) {
-    csr_ddr3_print_stat();
-  } else if(strcmp(token, "ddr_read") == 0) {
-    int i;
-    void * addr = (void *)atoi(get_token(&c));
-    int j = atoi(get_token(&c));
-    for (i = 0; i < j; i++) {
-      csr_ddr3_read_256(addr + 4 * i);
-      if (!(CSR_DDR3_CSR_STAT & 0x2)) {
-        printf("Read command failed !\n");
-        break;
-      }
-    }
-  } else if(strcmp(token, "ddr_write") == 0) {
-    int i;
-    void * addr = (void *)atoi(get_token(&c));
-    uint32_t v = atoi(get_token(&c));
-    int j = atoi(get_token(&c));
-    for (i = 0; i < j; i++) {
-      csr_ddr3_write_256(addr + 4 * i, v);
-      if (!(CSR_DDR3_CSR_STAT & 0x1)) {
-        printf("Write command failed !\n");
-        break;
-      }
-    }
   } else if(strcmp(token, "pci_info") == 0) {
 //     checker_pci_dump_command(); printf("\n");
 //     checker_pci_dump_address(); printf("\n");

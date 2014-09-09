@@ -34,6 +34,7 @@
 #include <hw/minimac.h>
 #include <hw/interrupts.h>
 #include <hw/mpu.h>
+#include <hw/hm.h>
 
 #include <hal/vga.h>
 #include <hal/tmu.h>
@@ -46,6 +47,7 @@
 
 #include <mpu.h>
 #include <mpu_int.h>
+#include <hm.h>
 
 static unsigned char mac[] = {0x00, 0x0a, 0x35, 0x01, 0x8e, 0xb4};
 static unsigned char lip[] = {192, 168, 0, 42};
@@ -316,15 +318,15 @@ static void do_command(char *c)
   } else if(strcmp(token, "mpu_start") == 0) {
     mpu_start();
   } else if(strcmp(token, "hm_read") == 0) {
-//     unsigned int low, high;
-//     low = atoi(get_token(&c));
-//     high = atoi(get_token(&c));
-//     checker_read_start(low, high);
+    unsigned int low, high;
+    low = atoi(get_token(&c));
+    high = atoi(get_token(&c));
+    hm_start(low, high);
   } else if(strcmp(token, "hm_stat") == 0) {
-//     checker_print_hm_stat();
+    hm_stat();
   } else if(strcmp(token, "hm_dump") == 0) {
-//     unsigned int *ptr = (unsigned int *)CHECKER_ADDR_HM;
-// 	  dump_bytes(ptr, 0x100, (unsigned)ptr);
+    unsigned int *ptr = (unsigned int *)&HM_MEMORY_ADDR;
+	  dump_bytes(ptr, 0x100, (unsigned)ptr);
   } else if(strcmp(token, "mpu_dump") == 0) {
     unsigned int *ptr = (unsigned int *)&MPU_MEMORY_ADDR;
 	  dump_bytes(ptr, 0x100, (unsigned)ptr);
@@ -401,7 +403,7 @@ int main(int i, char **c)
 	rescue = !((unsigned int)main > FLASH_OFFSET_REGULAR_BIOS);
 
 	irq_setmask(0);
-	irq_enable(IRQ_UART);
+	irq_enable(IRQ_UART | IRQ_HM | IRQ_MPU);
 	uart_init();
 
 	console_set_write_hook(dummy_write_hook);

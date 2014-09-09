@@ -79,7 +79,7 @@ void mpu_start(void) {
     } else {
       wait();
       printf("STAT %08x\n", MPU_CSR_STAT);
-      if (cpt < 5) {
+      if (cpt < 20) {
         cpt++;
       } else {
         printf("Number of waits exeeded\n");

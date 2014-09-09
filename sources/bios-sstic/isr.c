@@ -19,6 +19,7 @@
 #include <irq.h>
 #include <uart.h>
 #include <mpu.h>
+#include <hm.h>
 
 #include <hal/usb.h>
 #include <hal/tmu.h>
@@ -42,4 +43,7 @@ void isr(void)
 
 	if (irqs & IRQ_MPU)
 		mpu_isr();
+
+	if (irqs & IRQ_HM)
+		hm_isr();
 }

@@ -48,6 +48,25 @@
 #include <mpu.h>
 #include <mpu_int.h>
 #include <hm.h>
+#include <trn.h>
+
+extern void boot_helper(unsigned int r1, unsigned int r2, unsigned int r3, unsigned int r4, unsigned int addr);
+
+static void __attribute__((noreturn)) boot(unsigned int r1, unsigned int r2, unsigned int r3, unsigned int r4, unsigned int addr)
+{
+	uart_force_sync(1);
+	irq_setmask(0);
+	irq_enable(0);
+	boot_helper(r1, r2, r3, r4, addr);
+	while(1);
+}
+
+static inline void wait(void) {
+  int z, k;
+  for (k=0; k < 0x100; k++)
+    for (z=0; z< 0x100; z++)
+      asm("nop;");
+}
 
 static unsigned char mac[] = {0x00, 0x0a, 0x35, 0x01, 0x8e, 0xb4};
 static unsigned char lip[] = {192, 168, 0, 42};
@@ -282,6 +301,7 @@ static void help(void)
 	puts("Available commands:");
 	puts("help       - help");
 	puts("reboot     - hard reboot system");
+	puts("freboot    - hard reboot netbooted software");
   puts("mpu_start  - Start MPU");
 	puts("mpu_dl     - tftp download checker mpu binary : mpu.bin");
 	puts("mpu_dump   - Dumps the 0x100 first bytes of the mpu program");
@@ -305,6 +325,10 @@ static void do_command(char *c)
   } else if(strcmp(token, "reboot") == 0) {
     printf("Adresse de reboot 0x%08x\n", &reboot);
     reboot();
+  } else if(strcmp(token, "freboot") == 0) {
+    printf("Adresse de reboot 0x%08x\n", 0x0);
+    printf("I: Rebooting...\n");
+    boot(0, 0, 0, rescue, 0);
   } else if(strcmp(token, "mpu_dl") == 0) {
     int r;
     microudp_start(mac, IPTOINT(lip[0], lip[1], lip[2], lip[3]));
@@ -318,12 +342,30 @@ static void do_command(char *c)
   } else if(strcmp(token, "mpu_start") == 0) {
     mpu_start();
   } else if(strcmp(token, "hm_read") == 0) {
-    unsigned int low, high;
+    unsigned int low, high, count, i, same, j;
+    int r;
     low = atoi(get_token(&c));
     high = atoi(get_token(&c));
-    hm_start(low, high);
+    count = atoi(get_token(&c));
+    count = (!count) ? 1 : count;
+    same = atoi(get_token(&c));
+    same = (!same) ? 1 : same;
+    for (i = 0; i < count; i++) {
+      for (j = 0; j < same; j++) {
+        r = hm_start((low & ~0xfff) + (i * 0x1000), high);
+        if(r) {
+          printf("STAT %08x\n", HM_CSR_STAT);
+          break;
+        }
+      }
+      if(r) {
+        break;
+      }
+    }
+    printf("hm_read end\n");
   } else if(strcmp(token, "hm_stat") == 0) {
     hm_stat();
+    trn_stat_dump();
   } else if(strcmp(token, "hm_dump") == 0) {
     unsigned int *ptr = (unsigned int *)&HM_MEMORY_ADDR;
 	  dump_bytes(ptr, 0x100, (unsigned)ptr);
@@ -337,24 +379,21 @@ static void do_command(char *c)
   } else if(strcmp(token, "mc") == 0) {
     mc(get_token(&c), get_token(&c), get_token(&c));
   } else if(strcmp(token, "pci_info") == 0) {
-//     checker_pci_dump_command(); printf("\n");
-//     checker_pci_dump_address(); printf("\n");
-//     checker_pci_dump_dstatus(); printf("\n");
-//     checker_pci_dump_dcommand(); printf("\n");
-//     checker_pci_dump_lstatus(); printf("\n");
-//     checker_pci_dump_lcommand(); printf("\n");
-//     checker_pci_dump_dcommand2();
+    trn_pci_dump_command(); printf("\n");
+    trn_pci_dump_address(); printf("\n");
+    trn_pci_dump_dstatus(); printf("\n");
+    trn_pci_dump_dcommand(); printf("\n");
+    trn_pci_dump_lstatus(); printf("\n");
+    trn_pci_dump_lcommand(); printf("\n");
+    trn_pci_dump_dcommand2();
   } else if(strcmp(token, "fc_info") == 0) {
-//     checker_fc_dump_all();
+    trn_fc_dump_all();
   }
 }
 
 void prompt(void) {
 	char buffer[64];
-  int z, k;
-  for (k=0; k < 0x100; k++)
-    for (z=0; z< 0x100; z++)
-      asm("nop;");
+  wait();
   putsnonl("\e[1mBIOS>\e[0m ");
   readstr(buffer, 64);
   do_command(buffer);
@@ -403,7 +442,7 @@ int main(int i, char **c)
 	rescue = !((unsigned int)main > FLASH_OFFSET_REGULAR_BIOS);
 
 	irq_setmask(0);
-	irq_enable(IRQ_UART | IRQ_HM | IRQ_MPU);
+	irq_enable(IRQ_UART | IRQ_MPU);
 	uart_init();
 
 	console_set_write_hook(dummy_write_hook);

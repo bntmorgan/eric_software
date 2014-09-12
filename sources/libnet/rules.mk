@@ -4,7 +4,8 @@ d               := $(dir)
 
 TARGET					:= $(call SRC_2_BIN, $(d)/libnet.a)
 TARGETS 				+= $(TARGET)
-OBJS_$(d)				:= $(call SRC_2_OBJ, $(d)/mdio.o $(d)/microudp.o $(d)/tftp.o)
+OBJS_$(d)				:= $(call SRC_2_OBJ, $(d)/debug_server.o $(d)/mdio.o \
+	$(d)/microudp.o $(d)/tftp.o)
 
 OBJECTS 				+= $(OBJS_$(d))
 

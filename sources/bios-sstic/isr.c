@@ -21,9 +21,6 @@
 #include <mpu.h>
 #include <hm.h>
 
-#include <hal/usb.h>
-#include <hal/tmu.h>
-
 void isr(void)
 {
 	unsigned int irqs;
@@ -32,18 +29,7 @@ void isr(void)
 
 	if (irqs & IRQ_UART)
 		uart_isr();
-
-#if FIXME
-	if (irqs & IRQ_TMU)
-		tmu_isr();
-
-	if (irqs & IRQ_USB)
-		usb_isr();
-#endif
-
-	if (irqs & IRQ_MPU)
-		mpu_isr();
-
-	if (irqs & IRQ_HM)
-		hm_isr();
+ 
+ 	if (irqs & IRQ_MPU)
+ 		mpu_isr();
 }

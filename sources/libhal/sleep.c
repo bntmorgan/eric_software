@@ -15,7 +15,7 @@ void sleep_isr(void) {
 void sleep_init(uint32_t compare) {
 	unsigned int mask;
 	
-	printf("SLEEP: system timer start\n");
+	// printf("SLEEP: system timer start\n");
 
 	irq_ack(IRQ_TIMER1);
 	CSR_TIMER1_COUNTER = 0;
@@ -34,7 +34,7 @@ void sleep_off(void) {
 	mask &= ~IRQ_TIMER1;
 	irq_setmask(mask);
 
-	printf("SLEEP: system timer stopped\n");
+	// printf("SLEEP: system timer stopped\n");
 }
 
 int usleep(uint32_t usec) {
@@ -43,9 +43,31 @@ int usleep(uint32_t usec) {
     printf("Unable to load the timer, counter too high\n");
     return SLEEP_OVERFLOW;
   }
-  reached = 0;
   sleep_init((uint32_t)counter);
   while (!reached);
   sleep_off();
+  reached = 0;
+  return SLEEP_OK;
+}
+
+int usleep_until(uint32_t usec, int *b, int *o) {
+  uint64_t counter = (CSR_FREQUENCY / 1000000) * usec;
+  if (counter > (uint32_t)-1) {
+    printf("Unable to load the timer, counter too high\n");
+    return SLEEP_OVERFLOW;
+  }
+  sleep_init((uint32_t)counter);
+  while (1) {
+    if (*b) {
+      *o = *b;
+      break;
+    }
+    if (reached) {
+      *o = 0;
+      break;
+    }
+  }
+  sleep_off();
+  reached = 0;
   return SLEEP_OK;
 }

@@ -20,6 +20,7 @@
 #include <uart.h>
 #include <mpu.h>
 #include <hm.h>
+#include <hal/sleep.h>
 
 void isr(void)
 {
@@ -32,4 +33,7 @@ void isr(void)
  
  	if (irqs & IRQ_MPU)
  		mpu_isr();
+ 
+ 	if (irqs & IRQ_TIMER1)
+ 	  sleep_isr();
 }

@@ -4,7 +4,7 @@ d               := $(dir)
 
 TARGET					:= $(call SRC_2_BIN, $(d)/libhal.a)
 TARGETS 				+= $(TARGET)
-OBJS_$(d)				:= $(call SRC_2_OBJ, $(d)/brd.o)
+OBJS_$(d)				:= $(call SRC_2_OBJ, $(d)/brd.o $(d)/time.o $(d)/sleep.o)
 
 OBJECTS 				+= $(OBJS_$(d))
 

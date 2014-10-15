@@ -36,11 +36,8 @@
 #include <hw/mpu.h>
 #include <hw/hm.h>
 
-#include <hal/vga.h>
-#include <hal/tmu.h>
 #include <hal/brd.h>
-#include <hal/usb.h>
-#include <hal/ukb.h>
+#include <hal/sleep.h>
 
 #include <net/microudp.h>
 #include <net/tftp.h>
@@ -303,13 +300,14 @@ static void help(void)
 	puts("reboot     - hard reboot system");
 	puts("freboot    - hard reboot netbooted software");
   puts("mpu_start  - Start MPU");
-	puts("mpu_dl     - tftp download checker mpu binary : mpu.bin");
+	puts("mpu_dl     - tftp download mpu binary : mpu.bin");
 	puts("mpu_dump   - Dumps the 0x100 first bytes of the mpu program");
 	puts("hm_read    - start checker in host memory read mode on specified page");
 	puts("hm_stat    - Displays host memory module stats");
 	puts("hm_dump    - Dumps the 0x100 first bytes of the page read in hm");
 	puts("pci_info   - Prints information about the PCI state of the core");
 	puts("fc_info    - Prints information about the core flow control");
+	puts("usleep     - Sleep for a while");
 	puts("mr         - read address space");
 	puts("mw         - write address space");
 	puts("mc         - copy address space");
@@ -388,6 +386,8 @@ static void do_command(char *c)
     trn_pci_dump_dcommand2();
   } else if(strcmp(token, "fc_info") == 0) {
     trn_fc_dump_all();
+  } else if(strcmp(token, "usleep") == 0) {
+    usleep(atoi(get_token(&c)));
   }
 }
 
@@ -442,7 +442,7 @@ int main(int i, char **c)
 	rescue = !((unsigned int)main > FLASH_OFFSET_REGULAR_BIOS);
 
 	irq_setmask(0);
-	irq_enable(IRQ_UART | IRQ_MPU);
+	irq_enable(IRQ_UART | IRQ_TIMER0 | IRQ_TIMER1);
 	uart_init();
 
 	console_set_write_hook(dummy_write_hook);

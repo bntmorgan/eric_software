@@ -3,7 +3,7 @@
 
 void mpu_isr(void);
 
-void mpu_start(void);
+int mpu_start(void);
 
 void mpu_init(void);
 

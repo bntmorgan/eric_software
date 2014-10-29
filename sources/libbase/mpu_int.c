@@ -3,21 +3,22 @@
 #include <mpu_int.h>
 
 // user_data_t ints[MPU_INT_MAX];
-int ints[MPU_INT_MAX];
+user_data_t ints[MPU_INT_MAX];
 int ints_tail;
 int ints_head;
 int ints_size;
 
 void mpu_int_init(void) {
-  printf("ints_tail %x, ints_head %x, ints_size %x\n", ints_tail, ints_head,
-      ints_size);
+//   printf("ints_tail %x, ints_head %x, ints_size %x\n", ints_tail, ints_head,
+//       ints_size);
   ints_tail = 0;
   ints_head = 0;
   ints_size = 0;
 }
 
-void mpu_int_enqueue(int user_data) {
-  ints[ints_head] = user_data;
+void mpu_int_enqueue(int udl, int udh) {
+  ints[ints_head].l = udl;
+  ints[ints_head].h = udh;
   // Increment queue head
   ints_head = ((ints_head + 1)) % MPU_INT_MAX;
   // Increment queue tail if head == tail
@@ -28,9 +29,10 @@ void mpu_int_enqueue(int user_data) {
   }
 }
 
-int mpu_int_dequeue(int *user_data) {
+int mpu_int_dequeue(int *udl, int *udh) {
   if (ints_size > 0) {
-    *user_data = ints[ints_tail];
+    *udl = ints[ints_tail].l;
+    *udh = ints[ints_tail].h;
     ints_tail = ((ints_tail + 1)) % MPU_INT_MAX; 
     ints_size--;
     return 0;
@@ -38,7 +40,7 @@ int mpu_int_dequeue(int *user_data) {
   return -1;
 }
 
-int mpu_int_iterate(int init, int *user_data) {
+int mpu_int_iterate(int init, int *udl, int *udh) {
   static int tidx;
   static int cpt;
   if (init) {
@@ -47,7 +49,8 @@ int mpu_int_iterate(int init, int *user_data) {
     return 0;
   }
   if (cpt < ints_size) {
-    *user_data = ints[tidx];
+    *udl = ints[tidx].l;
+    *udh = ints[tidx].h;
     tidx = ((tidx + 1)) % MPU_INT_MAX; 
     cpt++;
     return 0;
@@ -57,22 +60,22 @@ int mpu_int_iterate(int init, int *user_data) {
 
 void mpu_int_test(void) {
   int i;
-  int ud;
+  int udl, udh;
   // normal usage
   mpu_int_init();
   for (i = 0; i < MPU_INT_MAX + 2; i++) {
-    mpu_int_enqueue(i);
+    mpu_int_enqueue(i, i);
   }
-  while (!mpu_int_dequeue(&ud)) {
-    printf("Dequeued %x\n", ud);
+  while (!mpu_int_dequeue(&udl, &udh)) {
+    printf("Dequeued %x %x\n", udl, udh);
   }
   // Iterator
   mpu_int_init();
   for (i = 0; i < MPU_INT_MAX + 2; i++) {
-    mpu_int_enqueue(i);
+    mpu_int_enqueue(i, i);
   }
-  mpu_int_iterate(1, NULL);
-  while (!mpu_int_iterate(0, &ud)) {
-    printf("Iterated %x\n", ud);
+  mpu_int_iterate(1, NULL, NULL);
+  while (!mpu_int_iterate(0, &udl, &udh)) {
+    printf("Iterated %x %x\n", udl, udh);
   }
 }

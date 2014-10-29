@@ -1,18 +1,24 @@
 #include <hw/hm.h>
 #include <hm.h>
 #include <hw/interrupts.h>
+#include <hw/sysctl.h>
 #include <stdio.h>
 #include <irq.h>
+#include <stdint.h>
 
 static int hm_end;
 static int hm_rx_timeout;
 static int hm_tx_timeout;
+int hm_read_exp;
+int hm_write_bar;
+uint32_t hm_read_exp_time;
+uint32_t hm_write_bar_time;
 
 static void wait(void) {
   int /* z, */k;
-  for (k=0; k < 0x100; k++) {
+  for (k=0; k < 0x1000; k++) {
     // for (z=0; z< 0x100; z++) {
-      // __asm__ __volatile__("nop;");
+      __asm__ __volatile__("nop;");
     // }
   }
 }
@@ -21,29 +27,72 @@ void hm_init(void) {
   hm_end = 0;
   hm_rx_timeout = 0;
   hm_tx_timeout = 0;
+  hm_read_exp = 0;
+  hm_write_bar = 0;
 
-	irq_ack(IRQ_HM);
+  HM_CSR_STAT = 0xffffffff;
+
+  irq_ack(IRQ_HM);
+}
+
+void hm_enable_irq(void) {
+  int mask, ie;
+
+	mask = irq_getmask();
+	mask |= IRQ_HM;
+	irq_setmask(mask);
+
+  ie = irq_getie();
+  ie |= IRQ_HM;
+  irq_setie(ie);
+
+  HM_CSR_CTRL |= HM_CTRL_IRQ_EN;
+}
+
+void hm_disable_irq(void) {
+  int mask, ie;
+
+  HM_CSR_CTRL &= ~HM_CTRL_IRQ_EN;
+
+  ie = irq_getie();
+  ie &= ~IRQ_HM;
+  irq_setie(ie);
+
+	mask = irq_getmask();
+	mask &= ~IRQ_HM;
+	irq_setmask(mask);
+}
+
+void hm_isr(void) {
+  int stat = HM_CSR_STAT;
+
+  if (stat & HM_STAT_EVENT_RX_TIMEOUT) { 
+    hm_rx_timeout = 1;
+    hm_end = 1;
+  } 
+  if (stat & HM_STAT_EVENT_TX_TIMEOUT) {
+    hm_tx_timeout = 1;
+    hm_end = 1;
+  }
+  if (stat & HM_STAT_EVENT_DONE) {
+    hm_end = 1;
+  }
+  if (stat & HM_STAT_EVENT_READ_EXP) {
+    hm_read_exp = 1;
+  } 
+  if (stat & HM_STAT_EVENT_WRITE_BAR) {
+    hm_write_bar = 1;
+  }
+
+  // Clear the events and so the interrupt
+  HM_CSR_STAT = stat;
+
+  irq_ack(IRQ_HM);
 }
 
 void hm_service(void) {
-  int stat = HM_CSR_STAT;
-
   if (irq_pending() & IRQ_HM) {
-    if (stat & HM_STAT_EVENT_RX_TIMEOUT) { 
-      hm_rx_timeout = 1;
-      hm_end = 1;
-    } else if (stat & HM_STAT_EVENT_TX_TIMEOUT) {
-      hm_tx_timeout = 1;
-      hm_end = 1;
-    } else if (stat & HM_STAT_EVENT_DONE) {
-      hm_end = 1;
-    }
-
-    // Clear the events and so the interrupt
-    HM_CSR_STAT = HM_STAT_EVENT_DONE | HM_STAT_EVENT_RX_TIMEOUT |
-      HM_STAT_EVENT_TX_TIMEOUT;
-
-	  irq_ack(IRQ_HM);
+    hm_isr();
   }
 }
 
@@ -86,7 +135,7 @@ int hm_start(int low, int high) {
       return HM_OK;
     } else {
       wait();
-      if (cpt < 4) {
+      if (cpt < 0xff) {
         cpt++;
       } else {
         printf("Number of waits exeeded\n");
@@ -98,6 +147,6 @@ int hm_start(int low, int high) {
 
 void hm_stat(void) {
   printf("STAT (0x%x), RX cpt (0x%x), RX state (0x%x), TX cpt (0x%x), TX "
-      "state (0x%x)\n", HM_CSR_STAT, HM_CSR_CPT_RX, HM_CSR_STATE_RX,
-      HM_CSR_CPT_TX, HM_CSR_STATE_TX);
+      "state (0x%x), state(0x%x)\n", HM_CSR_STAT, HM_CSR_CPT_RX,
+      HM_CSR_STATE_RX, HM_CSR_CPT_TX, HM_CSR_STATE_TX, HM_CSR_STATE_TX);
 }

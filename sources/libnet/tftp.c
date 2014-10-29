@@ -104,7 +104,7 @@ int tftp_get(unsigned int ip, const char *filename, char *buffer)
 	while(1) {
 		len = format_request(packet_data, filename);
 		microudp_send(PORT_IN, PORT_OUT, len);
-		for(i=0;i<2000000;i++) {
+		for(i=0;i<20000;i++) {
 			microudp_service();
 			if((total_length > 0) || transfer_finished) break;
 		}
@@ -119,7 +119,7 @@ int tftp_get(unsigned int ip, const char *filename, char *buffer)
 	length_before = total_length;
 	while(!transfer_finished) {
 		if(length_before != total_length) {
-			i = 12000000;
+			i = 120000;
 			length_before = total_length;
 		}
 		if(i-- == 0) {

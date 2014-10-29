@@ -123,7 +123,7 @@ static ethernet_buffer *txbuffer;
 
 static void send_packet(void)
 {
-	unsigned int crc;
+	unsigned int crc/*, i = 200000*/;
 	
 	crc = crc32(&txbuffer->raw[8], txlen-8);
 	txbuffer->raw[txlen  ] = (crc & 0xff);
@@ -133,7 +133,11 @@ static void send_packet(void)
 	txlen += 4;
 
 	CSR_MINIMAC_TXCOUNT = txlen;
-	while((irq_pending() & IRQ_ETHTX) == 0);
+  // XXX non block !
+	while((irq_pending() & IRQ_ETHTX) == 0/* && --i > 0*/);
+//   if (i == 0) {
+//     return;
+//   }
 	irq_ack(IRQ_ETHTX);
 }
 
@@ -222,7 +226,7 @@ int microudp_arp_resolve(unsigned int ip)
 		send_packet();
 
 		/* Do we get a reply ? */
-		for(timeout=0;timeout<2000000;timeout++) {
+		for(timeout=0;timeout<20000;timeout++) {
 			microudp_service();
 			for(i=0;i<6;i++)
 				if(cached_mac[i]) return 1;

@@ -47,6 +47,10 @@
 #include <hm.h>
 #include <trn.h>
 
+#include <debug_server.h>
+
+#include <challenge.h>
+
 extern void boot_helper(unsigned int r1, unsigned int r2, unsigned int r3, unsigned int r4, unsigned int addr);
 
 static void __attribute__((noreturn)) boot(unsigned int r1, unsigned int r2, unsigned int r3, unsigned int r4, unsigned int addr)
@@ -68,6 +72,9 @@ static inline void wait(void) {
 static unsigned char mac[] = {0x00, 0x0a, 0x35, 0x01, 0x8e, 0xb4};
 static unsigned char lip[] = {192, 168, 0, 42};
 static unsigned char rip[] = {192, 168, 0, 14};
+// static unsigned char mac[] = {0x00, 0x0a, 0x35, 0x02, 0xb7, 0xac};
+// static unsigned char lip[] = {140, 93, 69, 211};
+// static unsigned char rip[] = {140, 93, 69, 14};
 
 /* General address space functions */
 static const char banner[]=
@@ -300,6 +307,7 @@ static void help(void)
 	puts("reboot     - hard reboot system");
 	puts("freboot    - hard reboot netbooted software");
   puts("mpu_start  - Start MPU");
+	puts("exp_dl     - tftp download expansion rom : rom.bin");
 	puts("mpu_dl     - tftp download mpu binary : mpu.bin");
 	puts("mpu_dump   - Dumps the 0x100 first bytes of the mpu program");
 	puts("hm_read    - start checker in host memory read mode on specified page");
@@ -307,6 +315,8 @@ static void help(void)
 	puts("hm_dump    - Dumps the 0x100 first bytes of the page read in hm");
 	puts("pci_info   - Prints information about the PCI state of the core");
 	puts("fc_info    - Prints information about the core flow control");
+	puts("debug_run  - Run debug server");
+	puts("run        - Run challenge");
 	puts("usleep     - Sleep for a while");
 	puts("mr         - read address space");
 	puts("mw         - write address space");
@@ -327,6 +337,20 @@ static void do_command(char *c)
     printf("Adresse de reboot 0x%08x\n", 0x0);
     printf("I: Rebooting...\n");
     boot(0, 0, 0, rescue, 0);
+  } else if(strcmp(token, "exp_dl") == 0) {
+    int r;
+    char *name = get_token(&c);
+    if (name == NULL || strlen(name) == 0) {
+      name = "exp.bin";
+    }
+    microudp_start(mac, IPTOINT(lip[0], lip[1], lip[2], lip[3]));
+    int ip = IPTOINT(rip[0], rip[1], rip[2], rip[3]);
+    char *ptr = (char *)&HM_EXPANSION_ROM_ADDR;
+	  r = tftp_get(ip, name, ptr);
+    // We clear the cache to be sure that every instruction is written to the
+    // MPU shared memory
+    flush_cpu_dcache();
+    printf("Received %d bytes\n", r);
   } else if(strcmp(token, "mpu_dl") == 0) {
     int r;
     microudp_start(mac, IPTOINT(lip[0], lip[1], lip[2], lip[3]));
@@ -338,7 +362,15 @@ static void do_command(char *c)
     flush_cpu_dcache();
     printf("Received %d bytes\n", r);
   } else if(strcmp(token, "mpu_start") == 0) {
-    mpu_start();
+    int udl, udh;
+    if (!mpu_start()) {
+      mpu_int_iterate(1, NULL, NULL);
+      while (!mpu_int_iterate(0, &udl, &udh)) {
+        printf("Iterated %x %x\n", udl, udh);
+      }
+    } else {
+      printf("Stopped on error or waited too long\n");
+    }
   } else if(strcmp(token, "hm_read") == 0) {
     unsigned int low, high, count, i, same, j;
     int r;
@@ -365,6 +397,7 @@ static void do_command(char *c)
     hm_stat();
     trn_stat_dump();
   } else if(strcmp(token, "hm_dump") == 0) {
+    flush_cpu_dcache();
     unsigned int *ptr = (unsigned int *)&HM_MEMORY_ADDR;
 	  dump_bytes(ptr, 0x100, (unsigned)ptr);
   } else if(strcmp(token, "mpu_dump") == 0) {
@@ -388,6 +421,26 @@ static void do_command(char *c)
     trn_fc_dump_all();
   } else if(strcmp(token, "usleep") == 0) {
     usleep(atoi(get_token(&c)));
+  } else if(strcmp(token, "lord") == 0) {
+    printf("HM stat lord 0x%08x\n", HM_CSR_STAT);
+    printf("HM hm_read_exp 0x%08x\n", hm_read_exp);
+    printf("irq pending 0x%08x\n", irq_pending());
+    HM_CSR_STAT = 0xffffffff;
+    irq_ack(IRQ_HM);
+    printf("HM stat lord 0x%08x\n", HM_CSR_STAT);
+    printf("HM hm_read_exp 0x%08x\n", hm_read_exp);
+    printf("irq pending 0x%08x\n", irq_pending());
+  } else if(strcmp(token, "run") == 0) {
+    challenge_init();
+    challenge_run();
+  } else if(strcmp(token, "debug_run") == 0) {
+    microudp_start(mac, IPTOINT(lip[0], lip[1], lip[2], lip[3]));
+    int ip = IPTOINT(rip[0], rip[1], rip[2], rip[3]);
+    if (debug_server_init(ip) == -1) {
+      printf("Failed to init debug_server\n");
+    } else {
+      debug_server_run();
+    }
   }
 }
 

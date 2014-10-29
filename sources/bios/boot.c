@@ -223,6 +223,15 @@ void serialboot(void)
 #define REMOTEIP3 0
 #define REMOTEIP4 14
 
+// #define LOCALIP1 140
+// #define LOCALIP2 93
+// #define LOCALIP3 69
+// #define LOCALIP4 211
+// #define REMOTEIP1 140
+// #define REMOTEIP2 93
+// #define REMOTEIP3 69
+// #define REMOTEIP4 14
+
 static int tftp_get_v(unsigned int ip, const char *filename, char *buffer)
 {
 	int r;
@@ -236,6 +245,7 @@ static int tftp_get_v(unsigned int ip, const char *filename, char *buffer)
 }
 
 static unsigned char mac[] = {0x00, 0x0a, 0x35, 0x01, 0x8e, 0xb4};
+// static unsigned char mac[] = {0x00, 0x0a, 0x35, 0x02, 0xb7, 0xac};
 void netboot(void)
 {
 #if 0

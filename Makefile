@@ -96,6 +96,7 @@ clean:
 	@echo [CLR] $(TARGETS)
 	@echo [CLR] $(OBJECTS)
 	@rm -fr $(dir $(TARGETS)) $(OBJECTS)
+	@find sources | grep swp$ | xargs rm
 
 $(TOOLS)/%:
 	@echo [TOOLS] $@

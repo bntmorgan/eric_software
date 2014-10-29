@@ -21,10 +21,15 @@
 #include <stdlib.h>
 #include <board.h>
 
-static const struct board_desc boards[1] = {
+static const struct board_desc boards[2] = {
 	{
 		.id = 0x4D31, /* M1 */
 		.name = "Milkymist One",
+		.ethernet_phyadr = 1
+	},
+	{
+		.id = 0xe51c, /* ERIC */
+		.name = "ERIC",
 		.ethernet_phyadr = 1
 	},
 };

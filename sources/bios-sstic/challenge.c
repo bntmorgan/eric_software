@@ -16,7 +16,7 @@
 
 #define ABS(x) (((x) < 0) ? -(x) : (x))
 
-#define CHALLENGE_PERIOD 50500000 // 5 secondes
+#define CHALLENGE_PERIOD 5050000 // 5 secondes
 #define BUF_SIZE 4096
 
 static inline void wait(void) {
@@ -128,9 +128,6 @@ void challenge_run(void) {
       // User stop ?
       c = (HM_BAR_CTRL & HM_BAR_CTRL_EN) == HM_BAR_CTRL_EN;
       o = diff < CHALLENGE_PERIOD;
-      if (!o) {
-        printf("Too much wait!\n");
-      }
       if (!c || !o) {
         break;
       }
@@ -144,12 +141,28 @@ void challenge_run(void) {
         HM_CSR_STAT = HM_STAT_EVENT_WRITE_BAR;
         ok2 = 1;
       }
-      wait2();
     }
-    ok1 = 0, ok2 = 0, tl = t2;
+    ok1 = 0, ok2 = 0;
+    if (!o) {
+      tl = tc;
+    } else {
+      tl = t2;
+    }
     if (c) {
-      printf("t1 = 0x%08x.0x%08x, t2 = 0x%08x.0x%08x, diff = 0x%08x\n", t1.sec,
-          t1.usec, t2.sec, t2.usec, t2.usec - t1.usec);
+      diff = ((uint64_t)t2.sec * 1000000 + t2.usec) - ((uint64_t)t1.sec *
+          1000000 + t1.usec);
+      if (!o) {
+        printf("Missed challenge period\n");
+        challenge_send_result(0);
+      } else if (sh.time < diff) {
+        printf("VMM didn't write the solution in time : 0x%08x%08x\n", diff &
+            0xffffffff, diff >> 32);
+        challenge_send_result(0);
+      } else {
+        printf("t1 = 0x%08x.0x%08x, t2 = 0x%08x.0x%08x, diff = 0x%08x%08x\n",
+            t1.sec, t1.usec, t2.sec, t2.usec, diff & 0xffffffff, diff >> 32);
+        challenge_send_result(1);
+      }
     }
   }
   if (!c) {

@@ -35,6 +35,10 @@ void hm_init(void) {
   irq_ack(IRQ_HM);
 }
 
+void hm_set_bar_bitmap(uint32_t bar_bitmap) {
+  HM_CSR_BAR_BITMAP = bar_bitmap;
+}
+
 void hm_enable_irq(void) {
   int mask, ie;
 

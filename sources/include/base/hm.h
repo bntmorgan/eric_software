@@ -17,6 +17,8 @@ void hm_init(void);
 
 void hm_stat(void);
 
+void hm_set_bar_bitmap(uint32_t bar_bitmap);
+
 void hm_enable_irq(void);
 
 void hm_disable_irq(void);

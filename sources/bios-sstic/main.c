@@ -323,8 +323,17 @@ static void help(void)
 	puts("mc         - copy address space");
 }
 
-static void do_command(char *c)
-{
+void challenge_start(void) {
+  microudp_start(mac, IPTOINT(lip[0], lip[1], lip[2], lip[3]));
+  int ip = IPTOINT(rip[0], rip[1], rip[2], rip[3]);
+  if (debug_server_init(ip) == -1) {
+    printf("Failed to init debug_server\n");
+  }
+  challenge_init();
+  challenge_run();
+}
+
+static void do_command(char *c) {
 	char *token;
 	token = get_token(&c);
 
@@ -338,19 +347,7 @@ static void do_command(char *c)
     printf("I: Rebooting...\n");
     boot(0, 0, 0, rescue, 0);
   } else if(strcmp(token, "exp_dl") == 0) {
-    int r;
-    char *name = get_token(&c);
-    if (name == NULL || strlen(name) == 0) {
-      name = "exp.bin";
-    }
-    microudp_start(mac, IPTOINT(lip[0], lip[1], lip[2], lip[3]));
-    int ip = IPTOINT(rip[0], rip[1], rip[2], rip[3]);
-    char *ptr = (char *)&HM_EXPANSION_ROM_ADDR;
-	  r = tftp_get(ip, name, ptr);
-    // We clear the cache to be sure that every instruction is written to the
-    // MPU shared memory
-    flush_cpu_dcache();
-    printf("Received %d bytes\n", r);
+    challenge_dl(get_token(&c), mac, lip, rip);
   } else if(strcmp(token, "mpu_dl") == 0) {
     int r;
     microudp_start(mac, IPTOINT(lip[0], lip[1], lip[2], lip[3]));
@@ -431,8 +428,7 @@ static void do_command(char *c)
     printf("HM hm_read_exp 0x%08x\n", hm_read_exp);
     printf("irq pending 0x%08x\n", irq_pending());
   } else if(strcmp(token, "run") == 0) {
-    challenge_init();
-    challenge_run();
+    challenge_start();
   } else if(strcmp(token, "debug_run") == 0) {
     microudp_start(mac, IPTOINT(lip[0], lip[1], lip[2], lip[3]));
     int ip = IPTOINT(rip[0], rip[1], rip[2], rip[3]);
@@ -508,6 +504,25 @@ int main(int i, char **c)
   
   // checker_memory_test();
   // checker_int_test();
+  
+  // XXX run challenge by default
+
+  // Waiting for eth mac
+  printf("Waiting for the ethernet mac\n");
+  wait(), wait(), wait(), wait(), wait(), wait(), wait(), wait(), wait(),
+  wait(), wait(), wait(), wait(), wait(), wait(), wait(), wait(), wait(),
+  wait(), wait(), wait(), wait(), wait(), wait(), wait(), wait(), wait(),
+  wait(), wait(), wait(), wait(), wait(), wait(), wait(), wait(), wait();
+
+//   printf("Auto-boot...\n");
+//   int j = 0, r = -1;
+//   while (j < 5 && r == -1) {
+//     printf("Downloading challenge, attempt %d...\n", j + 1);
+//     r = challenge_dl("cpuid.bin", mac, lip, rip);
+//     ++j;
+//     wait(), wait(), wait(), wait(), wait(), wait(), wait(), wait(), wait();
+//   }
+//   challenge_start();
 
 	while(1) {
     prompt();

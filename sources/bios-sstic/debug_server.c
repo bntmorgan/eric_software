@@ -14,7 +14,7 @@
 #define PORT_IN		54322
 
 static uint8_t *tbuf;
-uint8_t rbuf[MTU];
+static uint8_t rbuf[MTU];
 static uint8_t is_msg;
 
 static inline void wait(void) {
@@ -24,7 +24,7 @@ static inline void wait(void) {
       asm("nop;");
 }
 
-uint8_t debug_server_recv(void) {
+int debug_server_recv(void) {
   is_msg = 0;
 	while (!is_msg) {
 		microudp_service();
@@ -32,8 +32,8 @@ uint8_t debug_server_recv(void) {
   return 0;
 }
 
-uint8_t debug_server_send(uint32_t length) {
-	microudp_send(PORT_IN, PORT_OUT, length);
+int debug_server_send(uint32_t len) {
+	microudp_send(PORT_IN, PORT_OUT, len);
   return 0;
 }
 

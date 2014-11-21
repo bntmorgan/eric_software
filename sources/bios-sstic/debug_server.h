@@ -7,6 +7,7 @@
 
 void debug_server_run(void);
 int debug_server_init(unsigned int ip);
+int debug_server_send(uint32_t len);
 
 enum DEBUG_SERVER_MESSAGE_TYPES {
   MESSAGE_MESSAGE,
@@ -17,7 +18,12 @@ enum DEBUG_SERVER_MESSAGE_TYPES {
   MESSAGE_MEMORY_WRITE,
   MESSAGE_COMMIT,
   MESSAGE_MEMORY_SCAN,
-  MESSAGE_MEMORY_SCAN_REPORT
+  MESSAGE_MEMORY_SCAN_REPORT,
+  MESSAGE_USER_DEFINED
+};
+
+enum DEBUG_SERVER_USER_DEFINED_TYPES {
+  USER_DEFINED_LOG_CHALLENGE,
 };
 
 //
@@ -67,6 +73,12 @@ typedef struct _message_memory_scan_report {
   uint8_t code;
   uint64_t length;
 } __attribute__((packed)) message_memory_scan_report;
+
+typedef struct _message_user_defined {
+  uint8_t type;
+  uint16_t user_type;
+  uint64_t length;
+} __attribute__((packed)) message_user_defined;
 
 static inline void *message_check_type(message *m, uint8_t type) {
   if (m->type == type) {

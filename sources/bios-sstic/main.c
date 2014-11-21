@@ -333,6 +333,8 @@ void challenge_start(void) {
   challenge_run();
 }
 
+// XXX This is shit
+extern uint32_t _yolo;
 static void do_command(char *c) {
 	char *token;
 	token = get_token(&c);
@@ -418,15 +420,8 @@ static void do_command(char *c) {
     trn_fc_dump_all();
   } else if(strcmp(token, "usleep") == 0) {
     usleep(atoi(get_token(&c)));
-  } else if(strcmp(token, "lord") == 0) {
-    printf("HM stat lord 0x%08x\n", HM_CSR_STAT);
-    printf("HM hm_read_exp 0x%08x\n", hm_read_exp);
-    printf("irq pending 0x%08x\n", irq_pending());
-    HM_CSR_STAT = 0xffffffff;
-    irq_ack(IRQ_HM);
-    printf("HM stat lord 0x%08x\n", HM_CSR_STAT);
-    printf("HM hm_read_exp 0x%08x\n", hm_read_exp);
-    printf("irq pending 0x%08x\n", irq_pending());
+  } else if(strcmp(token, "yolo") == 0) {
+    printf("yolo 0x%08x\n", _yolo);
   } else if(strcmp(token, "run") == 0) {
     challenge_start();
   } else if(strcmp(token, "debug_run") == 0) {

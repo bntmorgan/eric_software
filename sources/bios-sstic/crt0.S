@@ -26,8 +26,17 @@
 /* Exception handlers - Must be 32 bytes long. */
 .section    .text, "ax", @progbits
 .global     _start
+.global     _yolo
 _start:
 _reset_handler:
+
+  // XXX This is shit
+
+	ori	r0, r0, _yolo
+  lw r1, (r0+0)
+  addi r1, r1, 1
+  sw (r0+0), r1
+
 	xor	r0, r0, r0
 	wcsr	IE, r0
 	mvhi	r1, hi(_reset_handler)
@@ -99,6 +108,12 @@ _interrupt_handler:
 	nop
 	nop
 
+_yolo:
+  .byte 0x0
+  .byte 0x0
+  .byte 0x0
+  .byte 0x0
+
 macaddress:
 	.byte 0x10
 	.byte 0xe2
@@ -118,6 +133,12 @@ _crt0:
 	mvhi    gp, hi(_gp)
 	ori     gp, gp, lo(_gp)
 
+  /* This is shit XXX Do not clear BSS after one execution */
+	ori	r4, r4, _yolo
+	mvhi r5, hi(_yolo)
+	ori r5, r5, lo(_yolo)
+	mvi r6, 1
+
 	/* Clear BSS */
 	mvhi    r1, hi(_fbss)
 	ori     r1, r1, lo(_fbss)
@@ -125,7 +146,11 @@ _crt0:
 	ori     r3, r3, lo(_ebss)
 .clearBSS:
 	be      r1, r3, .callMain
+  bne     r1, r4, .cBSS
+  bge     r5, r6, .addBSS
+.cBSS:
 	sw      (r1+0), r0
+.addBSS:
 	addi    r1, r1, 4
 	bi      .clearBSS
 

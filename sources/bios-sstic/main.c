@@ -38,6 +38,7 @@
 
 #include <hal/brd.h>
 #include <hal/sleep.h>
+#include <hal/time.h>
 
 #include <net/microudp.h>
 #include <net/tftp.h>
@@ -68,6 +69,8 @@ static inline void wait(void) {
     for (z=0; z< 0x100; z++)
       asm("nop;");
 }
+
+void time_tick(void) {}
 
 static unsigned char mac[] = {0x00, 0x0a, 0x35, 0x01, 0x8e, 0xb4};
 static unsigned char lip[] = {192, 168, 0, 42};
@@ -317,6 +320,7 @@ static void help(void)
 	puts("fc_info    - Prints information about the core flow control");
 	puts("debug_run  - Run debug server");
 	puts("run        - Run challenge");
+	puts("set_period - Set challenge period");
 	puts("usleep     - Sleep for a while");
 	puts("mr         - read address space");
 	puts("mw         - write address space");
@@ -329,7 +333,6 @@ void challenge_start(void) {
   if (debug_server_init(ip) == -1) {
     printf("Failed to init debug_server\n");
   }
-  challenge_init();
   challenge_run();
 }
 
@@ -362,14 +365,62 @@ static void do_command(char *c) {
     printf("Received %d bytes\n", r);
   } else if(strcmp(token, "mpu_start") == 0) {
     int udl, udh;
+    struct timestamp tb, ta;
+    uint64_t diff;
+    time_get(&tb);
     if (!mpu_start()) {
+      time_get(&ta);
       mpu_int_iterate(1, NULL, NULL);
       while (!mpu_int_iterate(0, &udl, &udh)) {
         printf("Iterated %x %x\n", udl, udh);
       }
+      diff = (ta.sec * 1000000 + ta.usec) - (tb.sec * 1000000 + tb.usec);
+      printf("b = %d.%06d, a = %d.%06d, diff = 0x%08x%08x\n", tb.sec, tb.usec,
+          ta.sec, ta.usec, diff & 0xffffffff, diff >> 32);
     } else {
       printf("Stopped on error or waited too long\n");
     }
+  } else if(strcmp(token, "hm_hamm") == 0) {
+    struct timestamp tb, ta;
+    uint64_t diff;
+    uint32_t al, bl, xorl;
+    uint32_t ah, bh, xorh;
+    uint32_t i = 0x20000000, hamml, hammh, j;
+    time_get(&tb);
+    bl = *(uint32_t *)(i + 0);
+    bh = *(uint32_t *)(i + 4);
+    // hamming
+    for (; i < 0x20000000 + 0xff8; i += 8) {
+      al = bl;
+      ah = bh;
+      bl = *(uint32_t *)(i + 0x8);
+      bh = *(uint32_t *)(i + 0xc);
+      // l
+      xorl = al ^ bl;
+      xorh = ah ^ bh;
+      hamml = 0;
+      hammh = 0;
+      for (j = 0; j < 32; j++) {
+        if (xorl & 1) {
+          hamml++;
+        }
+        xorl = xorl >> 1;
+        if (xorh & 1) {
+          hammh++;
+        }
+        xorh = xorh >> 1;
+      }
+      if (hamml + hammh > 9) {
+        break;
+      }
+    }
+    time_get(&ta);
+    if (hamml + hammh > 9) {
+      printf("Distance de hamming trop grande : %x\n", i);
+    }
+    diff = (ta.sec * 1000000 + ta.usec) - (tb.sec * 1000000 + tb.usec);
+    printf("b = %d.%06d, a = %d.%06d, diff = 0x%08x%08x\n", tb.sec, tb.usec,
+        ta.sec, ta.usec, diff & 0xffffffff, diff >> 32);
   } else if(strcmp(token, "hm_read") == 0) {
     unsigned int low, high, count, i, same, j;
     int r;
@@ -422,6 +473,8 @@ static void do_command(char *c) {
     usleep(atoi(get_token(&c)));
   } else if(strcmp(token, "yolo") == 0) {
     printf("yolo 0x%08x\n", _yolo);
+  } else if(strcmp(token, "set_period") == 0) {
+    challenge_set_period(atoi(get_token(&c)));
   } else if(strcmp(token, "run") == 0) {
     challenge_start();
   } else if(strcmp(token, "debug_run") == 0) {
@@ -496,6 +549,9 @@ int main(int i, char **c)
   print_pc();
 	crcbios();
 	brd_init();
+
+  // Time init
+  time_init();
   
   // checker_memory_test();
   // checker_int_test();

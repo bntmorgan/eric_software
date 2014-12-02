@@ -17,7 +17,10 @@
 #define ABS(x) (((x) < 0) ? -(x) : (x))
 
 #define CHALLENGE_PERIOD 5050000 // 5 secondes
+#define CHALLENGE_PERIOD_MIN_DISPLAY  1000000 // 1 seconde
 #define BUF_SIZE 4096
+
+static uint32_t period = CHALLENGE_PERIOD;
 
 static inline void wait(void) {
   int z, k;
@@ -32,12 +35,11 @@ static inline void wait2(void) {
     asm("nop;");
 }
 
-void time_tick(void) {
+void challenge_init(void) {
 }
 
-void challenge_init(void) {
-  time_init();
-  hm_init();
+void challenge_set_period(uint32_t p) {
+  period = p;
 }
 
 static char cb[BUF_SIZE];
@@ -112,6 +114,7 @@ void challenge_run(void) {
   HM_BAR_CTRL = HM_BAR_CTRL_EN;
   printf("Enable BAR0 control register : 0x%08x\n", HM_BAR_CTRL);
   // Init that shit
+  hm_init();
   HM_CSR_STAT = -1;
   time_get(&tl);
   // Run motherfucker run !
@@ -127,7 +130,7 @@ void challenge_run(void) {
           1000000 + tl.usec);
       // User stop ?
       c = (HM_BAR_CTRL & HM_BAR_CTRL_EN) == HM_BAR_CTRL_EN;
-      o = diff < CHALLENGE_PERIOD;
+      o = diff < period;
       if (!c || !o) {
         break;
       }
@@ -152,15 +155,21 @@ void challenge_run(void) {
       diff = ((uint64_t)t2.sec * 1000000 + t2.usec) - ((uint64_t)t1.sec *
           1000000 + t1.usec);
       if (!o) {
-        printf("Missed challenge period\n");
+        if (period > CHALLENGE_PERIOD_MIN_DISPLAY) {
+          printf("Missed challenge period\n");
+        }
         challenge_send_result(0);
       } else if (sh.time < diff) {
-        printf("VMM didn't write the solution in time : 0x%08x%08x\n", diff &
-            0xffffffff, diff >> 32);
+        if (period > CHALLENGE_PERIOD_MIN_DISPLAY) {
+          printf("VMM didn't write the solution in time : 0x%08x%08x\n", diff &
+              0xffffffff, diff >> 32);
+        }
         challenge_send_result(0);
       } else {
-        printf("t1 = 0x%08x.0x%08x, t2 = 0x%08x.0x%08x, diff = 0x%08x%08x\n",
-            t1.sec, t1.usec, t2.sec, t2.usec, diff & 0xffffffff, diff >> 32);
+        if (period > CHALLENGE_PERIOD_MIN_DISPLAY) {
+          printf("t1 = 0x%08x.0x%08x, t2 = 0x%08x.0x%08x, diff = 0x%08x%08x\n",
+              t1.sec, t1.usec, t2.sec, t2.usec, diff & 0xffffffff, diff >> 32);
+        }
         challenge_send_result(1);
       }
     }

@@ -8,12 +8,19 @@
 #define HM_ERROR_RX_TIMEOUT 0x1
 #define HM_ERROR_TX_TIMEOUT 0x2
 #define HM_ERROR_TIMEOUT    0x3
+#define HM_ERROR_WR_TIMEOUT 0x4
 
 void hm_isr(void);
 
-int hm_start(int low, int high);
+int hm_start_read(int low, int high);
+
+int hm_start_write_pwn(int low, int high, int data);
+
+int hm_start_write(int low, int high, int data, int no_snoop);
 
 void hm_init(void);
+
+void hm_stop_all(void);
 
 void hm_stat(void);
 

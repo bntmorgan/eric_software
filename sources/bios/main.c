@@ -49,8 +49,6 @@ enum {
 	CSR_WP0, CSR_WP1, CSR_WP2, CSR_WP3,
 };
 
-int booted = 0;
-
 /* General address space functions */
 
 #define NUMBER_OF_BYTES_ON_A_LINE 16
@@ -473,7 +471,6 @@ static void do_command(char *c)
 	else if(strcmp(token, "") != 0) printf("Command not found\n");
 }
 
-#ifdef FIXME
 static int test_user_abort(void)
 {
 	char c;
@@ -489,17 +486,16 @@ static int test_user_abort(void)
 				puts("I: Aborted boot on user request");
 				return 0;
 			}
-			if(c == 0x07) {
-				vga_unblank();
-				vga_set_console(1);
-				netboot();
-				return 0;
-			}
+//			if(c == 0x07) {
+//				vga_unblank();
+//				vga_set_console(1);
+//				netboot();
+//				return 0;
+//			}
 		}
 	}
 	return 1;
 }
-#endif
 
 int rescue;
 
@@ -778,10 +774,11 @@ int main(int i, char **c)
 
 	ethreset(); /* < that pesky ethernet PHY needs two resets at times... */
 
-  if (booted) {
+  if (test_user_abort()) {
+    printf("I: Not aborted\n");
     netboot();
   } else {
-    booted = 1;
+    printf("I: Aborted\n");
     while(1) {
       int z, k;
       for (k=0; k < 0x100; k++)
@@ -792,5 +789,6 @@ int main(int i, char **c)
       do_command(buffer);
     }
   }
-	return 0;
+
+  return 0;
 }

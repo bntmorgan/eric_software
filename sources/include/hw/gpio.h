@@ -31,5 +31,11 @@
 /* Outputs */
 #define GPIO_LED1	(0x00000001)
 #define GPIO_LED2	(0x00000002)
+#define GPIO_LED3	(0x00000003)
+#define GPIO_LED4	(0x00000004)
+#define GPIO_LED5	(0x00000005)
+#define GPIO_LED6	(0x00000006)
+#define GPIO_LED7	(0x00000007)
+#define GPIO_LED8	(0x00000008)
 
 #endif /* __HW_GPIO_H */

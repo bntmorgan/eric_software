@@ -48,7 +48,7 @@ void debug_server_handle_memory_read(message_memory_read *mr) {
       length_high, length_low);
 
   // Get the data from host mem
-  hm_start(addr_low, addr_high);
+  hm_start_read(addr_low, addr_high);
 
   // Answer to the client 
   message_memory_data *r = (message_memory_data *)tbuf;
@@ -80,7 +80,7 @@ void debug_server_handle_memory_scan(message_memory_scan *mr) {
   // Runs number of asked times
   for (j = 0; j < pages; j++) {
     // Runs HM on the current page
-    rc = hm_start((addr_low & ~0xfff), addr_high);
+    rc = hm_start_read((addr_low & ~0xfff), addr_high);
     if(rc) {
       printf("Failed to read the page STAT %08x\n", HM_CSR_STAT);
       r->code = -1;

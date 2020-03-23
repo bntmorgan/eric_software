@@ -96,22 +96,21 @@ clean:
 	@echo [CLR] $(TARGETS)
 	@echo [CLR] $(OBJECTS)
 	@rm -fr $(dir $(TARGETS)) $(OBJECTS)
-	@find sources | grep swp$ | xargs rm
 
 $(TOOLS)/%:
 	@echo [TOOLS] $@
 	@make -s -C $(TOOLS)
 
-mr-proper: mr-proper-vim clean
-
-mr-proper-vim:
-	@echo [CLR] *.swp
-	@find . | grep .swp | xargs rm -f
+mr-proper: clean
 
 boot.bin: binary/bios-sstic/bios.bin
 	@echo [CP] $^ $(TFTPY)/root/$@
 	@cp $^ $(TFTPY)/root/$@
 
 bios.rom: binary/bios/bios.rom
+	@echo [CP] $^ $(ERIC)/sources/cores/bram/rtl/$@
+	@cp $^ $(ERIC)/sources/cores/bram/rtl/$@
+
+bios-sstic.rom: binary/bios-sstic/bios.rom
 	@echo [CP] $^ $(ERIC)/sources/cores/bram/rtl/$@
 	@cp $^ $(ERIC)/sources/cores/bram/rtl/$@

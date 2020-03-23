@@ -5,7 +5,7 @@ d               := $(dir)
 TARGET					:= $(call SRC_2_BIN, $(d)/bios.elf)
 TARGETS 				+= $(call ELF_2_BIN, $(TARGET))
 OBJS_$(d)				:= $(call SRC_2_OBJ, $(d)/crt0.o $(d)/isr.o $(d)/main.o \
-	$(d)/debug_server.o $(d)/challenge.o $(d)/boot-helper.o)
+	$(d)/debug_server.o $(d)/challenge.o $(d)/iommu_pwn.o $(d)/boot-helper.o)
 
 OBJECTS 				+= $(OBJS_$(d))
 

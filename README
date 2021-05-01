@@ -1,0 +1,34 @@
+ERIC PCIe Peripheral firmware
+
+eric_software/
+  ERIC firmwares : rom firmware and netbooted firmware
+eric_software/sources/bios/
+  ROM firmware
+eric_software/sources/bios-sstic/
+  Netbootable firmware with advanced features
+eric_software/sources/include/base/
+  C library headers
+eric_software/sources/include/base/mpu.h
+  MPU service function headers
+eric_software/sources/include/base/hm.h
+  PCIe endpoint function headers
+eric_software/sources/include/base/trn.h
+  Xilinx PCIe IP core management functions
+eric_software/sources/include/hw/
+  Hardware abstraction layer headers
+eric_software/sources/include/hw/mpu.h
+  MPU registers
+eric_software/sources/include/hw/hm.h
+  PCIe endpoint memory mapped registers
+eric_software/sources/include/hw/trn.h
+  Xilinx IP core memory mapped registers
+eric_software/sources/libbase/
+  C standard library implementation mostly from Milkymist
+eric_software/sources/libbase/mpu.c
+eric_software/sources/libbase/mpu-int.c
+  MPU service implementation
+eric_software/sources/libbase/hm.c
+  PCIe endpoint service implementation
+eric_software/sources/libbase/trn.c
+  Xilinx IP core service implementation
+
